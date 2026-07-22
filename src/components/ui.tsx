@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, TouchableOpacity, ActivityIndicator, StyleSheet,
-  ViewStyle, TextStyle, Pressable,
+  ViewStyle, TextStyle, Pressable, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,13 +80,27 @@ export function GradientButton({
   label: string; onPress?: () => void; loading?: boolean;
   colors?: [string, string]; disabled?: boolean;
 }) {
+  // expo-linear-gradient does not render reliably under react-native-web —
+  // the gradient layer comes out transparent, leaving a white box with white
+  // text inside it (an invisible button). Every primary action in the app uses
+  // this component, so on web we fall back to a solid fill using the first
+  // gradient stop, which is the same brand colour.
+  const isWeb = Platform.OS === 'web';
+
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} style={{ opacity: disabled ? 0.6 : 1 }}>
-      <LinearGradient colors={g} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-        style={[styles.btn, shadow.float]}>
-        {loading ? <ActivityIndicator color="#fff" />
-                 : <Text style={styles.btnText}>{label}</Text>}
-      </LinearGradient>
+      {isWeb ? (
+        <View style={[styles.btn, shadow.float, { backgroundColor: g[0] }]}>
+          {loading ? <ActivityIndicator color="#fff" />
+                   : <Text style={styles.btnText}>{label}</Text>}
+        </View>
+      ) : (
+        <LinearGradient colors={g} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={[styles.btn, shadow.float]}>
+          {loading ? <ActivityIndicator color="#fff" />
+                   : <Text style={styles.btnText}>{label}</Text>}
+        </LinearGradient>
+      )}
     </Pressable>
   );
 }
