@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { API } from '@/lib/api';
 import { colors, spacing, font, radius, roleAccent, roleLabel, moduleColor } from '@/theme';
-import { Container, useGridColumns, gridItemWidth } from '@/components/responsive';
+import { Container, useGridColumns, gridItemWidth, useBreakpoint } from '@/components/responsive';
 
 export default function Dashboard() {
   const { user, school, signOut } = useAuth();
@@ -20,8 +20,12 @@ export default function Dashboard() {
 
   // 3 tiles on a phone, more as the window grows — a fixed 31% would render
   // ~600px squares on a desktop.
+  const { isDesktop } = useBreakpoint();
   const cols = useGridColumns({ phone: 3, tablet: 4, desktop: 6 });
   const tileW = gridItemWidth(cols);
+  // aspectRatio:1 was sized for a ~120px phone tile. At ~250px on desktop it
+  // forces a 250px-tall box with the label stranded at the bottom, so the
+  // tiles get a fixed comfortable height instead of a square ratio.
 
   const load = useCallback(async () => {
     try {
@@ -90,7 +94,11 @@ export default function Dashboard() {
         </View>
 
         {/* Greeting */}
-        <Text style={styles.greeting}>Good day,{'\n'}{(user?.name ?? 'there').split(' ')[0]}</Text>
+        {/* The forced newline keeps the greeting readable on a narrow phone;
+            on a wide viewport it just wastes a line, so keep it inline. */}
+        <Text style={styles.greeting}>
+          Good day,{isDesktop ? ' ' : '\n'}{(user?.name ?? 'there').split(' ')[0]}
+        </Text>
         <Text style={styles.school}>{school?.name ?? 'Your school'}</Text>
 
         {/* Stats — quiet cards, with colour carrying meaning (dues turn amber) */}
@@ -157,7 +165,7 @@ const styles = StyleSheet.create({
 
   sectionLabel: { ...font.caption, color: colors.muted, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: spacing.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
-  tile: { aspectRatio: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.md, justifyContent: 'space-between' },
+  tile: { minHeight: 104, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.md, justifyContent: 'space-between' },
   tileIcon: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   tileLabel: { ...font.label, color: colors.ink, fontWeight: '600' },
 });
