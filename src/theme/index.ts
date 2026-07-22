@@ -105,13 +105,20 @@ export const shadow = {
 };
 
 // Back-compat shims for screens not yet migrated (flat, no gradients now).
+//
+// NOTE: `gradient` used to be [surface, surface] — i.e. white-to-white. Ten
+// GradientButtons across seven screens pass `rt.gradient` as their fill
+// ("Load", "Save Attendance", "Save Marks", "Save School Setup", the promote
+// actions…), so every one of them rendered as white text on a white pill —
+// an invisible button. The role identity is expressed as a small coloured dot
+// elsewhere, so the button fill should just be the brand colour.
 export const roleTheme: Record<string, { gradient: [string, string]; accent: string; label: string }> =
   Object.fromEntries(Object.keys(colors.role).map(r => [r, {
-    gradient: [colors.surface, colors.surface] as [string, string],
+    gradient: [colors.primary, colors.primaryDark] as [string, string],
     accent: colors.role[r], label: roleLabel(r),
   }]));
 export function themeForRole(role?: string) {
-  return roleTheme[role ?? ''] ?? { gradient: [colors.surface, colors.surface] as [string, string], accent: colors.primary, label: 'Member' };
+  return roleTheme[role ?? ''] ?? { gradient: [colors.primary, colors.primaryDark] as [string, string], accent: colors.primary, label: 'Member' };
 }
 export const gradients = {
   brand: [colors.primary, colors.primaryDark] as [string, string],
