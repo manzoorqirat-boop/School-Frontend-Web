@@ -8,24 +8,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, font, shadow } from '@/theme';
 import { GradientButton } from './ui';
+import { Container, MAX_W, useBreakpoint } from './responsive';
 
 // ── Screen scaffold: light refined top bar + back + scroll body ─────────────
 // `colors` prop kept for back-compat (ignored now) so existing screens compile.
 export function Screen({
-  title, subtitle, onBack, right, children, scroll = true,
+  title, subtitle, onBack, right, children, scroll = true, maxWidth = MAX_W.wide,
 }: {
   title: string; subtitle?: string; colors?: [string, string];
   onBack?: () => void; right?: React.ReactNode; children: React.ReactNode; scroll?: boolean;
+  /** Content column cap. MAX_W.form for form-heavy screens. */
+  maxWidth?: number;
 }) {
   const insets = useSafeAreaInsets();
+  // Content is capped and centred so percentage-based layouts inside resolve
+  // against a phone-like column instead of a 1900px desktop viewport.
   const Body = scroll
     ? <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
-    : <View style={{ flex: 1 }}>{children}</View>;
+        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Container max={maxWidth}>{children}</Container>
+      </ScrollView>
+    : <View style={{ flex: 1 }}><Container max={maxWidth} style={{ flex: 1 }}>{children}</Container></View>;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={[styles.bar, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.barRow}>
+        <Container max={maxWidth} style={styles.barRow}>
           {onBack && (
             <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={6}>
               <Ionicons name="chevron-back" size={22} color={colors.ink} />
@@ -36,7 +43,7 @@ export function Screen({
             <Text style={styles.barTitle}>{title}</Text>
           </View>
           {right}
-        </View>
+        </Container>
       </View>
       {Body}
     </View>
@@ -367,13 +374,25 @@ export function FormModal({
   submitLabel?: string; submitting?: boolean; children: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useBreakpoint();
+
+  // A bottom sheet is a phone idiom. On a wide screen it reads as broken —
+  // a full-width strip pinned to the bottom of a 1900px window. Switch to a
+  // centred dialog there; phone/tablet keep the sheet.
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType={isDesktop ? 'fade' : 'slide'} transparent onRequestClose={onClose}>
       <View style={styles.modalBg}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ justifyContent: 'flex-end', flex: 1 }}>
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-            <View style={styles.sheetHandle} />
+          style={{ justifyContent: isDesktop ? 'center' : 'flex-end', alignItems: isDesktop ? 'center' : undefined, flex: 1 }}>
+          <View style={[
+            styles.sheet,
+            { paddingBottom: insets.bottom + spacing.lg },
+            isDesktop && {
+              width: '100%', maxWidth: 640, borderRadius: radius.xl,
+              marginHorizontal: spacing.lg, paddingBottom: spacing.lg,
+            },
+          ]}>
+            {!isDesktop && <View style={styles.sheetHandle} />}
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle}>{title}</Text>
               <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={colors.slate} /></TouchableOpacity>
