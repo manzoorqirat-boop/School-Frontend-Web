@@ -1,4 +1,8 @@
-import * as SecureStore from 'expo-secure-store';
+// Token persistence goes through ./storage, which uses localStorage on web.
+// expo-secure-store has NO web implementation — calling it directly in a
+// browser throws, the catch swallows it, get() returns null, and login
+// "succeeds" while persisting nothing (endless redirect back to login).
+import { getItem, setItem, removeItem } from './storage';
 import Constants from 'expo-constants';
 
 // Direct-to-.NET API client. Behaviourally identical to the web app's api.ts:
@@ -44,15 +48,9 @@ const K = {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-async function get(key: string) {
-  try { return await SecureStore.getItemAsync(key); } catch { return null; }
-}
-async function set(key: string, val: string) {
-  try { await SecureStore.setItemAsync(key, val); } catch {}
-}
-async function del(key: string) {
-  try { await SecureStore.deleteItemAsync(key); } catch {}
-}
+async function get(key: string) { return getItem(key); }
+async function set(key: string, val: string) { return setItem(key, val); }
+async function del(key: string) { return removeItem(key); }
 
 export const API = {
   base: BASE,
@@ -122,12 +120,8 @@ export const API = {
       const d0 = data as any;
       let msg = (d0 && d0.error) || `HTTP ${res.status}`;
       if (d0 && Array.isArray(d0.details) && d0.details.length) {
-        // Show up to 3 field errors, each as "field: reason", so a rejected
-        // save names every offending field instead of just the first.
-        const lines = d0.details.slice(0, 3).map((d: any) =>
-          d?.field ? `${d.field}: ${d.message ?? d.error ?? ''}`.trim()
-                   : (d?.message || d?.error || JSON.stringify(d)));
-        msg += ':\n' + lines.join('\n');
+        const d = d0.details[0];
+        msg += ': ' + (d.message || d.error || JSON.stringify(d));
       }
       // ASP.NET ProblemDetails: model-binding/validation failures come back as
       // { title, errors: { "$.field": ["reason"] } } with NO `error` key, so
