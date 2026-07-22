@@ -1,27 +1,13 @@
 # Dependencies
 node_modules/
 
-# Expo
+# Expo / build output
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native build output (managed workflow regenerates these)
-/ios
-/android
-
-# Secrets — NEVER commit these.
-# google-service-account.json is referenced by eas.json submit.production;
-# supply it via `eas secret:create` or a CI secret, not the repo.
-google-service-account.json
-google-services.json
-GoogleService-Info.plist
-*.jks
-*.keystore
-*.p8
-*.p12
-*.mobileprovision
+# Secrets
 .env
 .env.*
 !.env.example
@@ -35,9 +21,7 @@ yarn-debug.*
 yarn-error.*
 *.log
 
-# macOS
+# OS / IDE
 .DS_Store
-
-# IDE
 .idea/
 *.swp
