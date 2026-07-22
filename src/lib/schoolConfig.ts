@@ -20,10 +20,27 @@ export function useSchoolConfig() {
   const sections: string[] = school?.sections?.length ? school.sections : DEFAULT_SECTIONS;
   const workingDays: string[] = school?.workingDays?.length ? school.workingDays : DEFAULT_WORKING_DAYS;
 
+  // `school` is null when the session was created before /login returned it.
+  // The fallbacks above then make every picker show DEFAULT_CLASSES, which
+  // looks exactly like the lists are hardcoded — the configured values are
+  // never consulted because there is no school object to read them from.
+  // Surfacing this lets screens warn instead of silently showing wrong data.
+  const isUsingDefaults = !school?.classes?.length;
+  const schoolLoaded = !!school?._id;
+
+  if (__DEV__ && !schoolLoaded) {
+    console.warn(
+      '[useSchoolConfig] No school in session — falling back to DEFAULT_CLASSES/SECTIONS. ' +
+      'Class and section pickers will not reflect School Setup until the session carries a school.',
+    );
+  }
+
   return {
     classes,
     sections,
     workingDays,
+    isUsingDefaults,
+    schoolLoaded,
     academicYear: school?.academicYear as string | undefined,
     // Chip pickers that allow "all"/"any" need a leading blank option.
     classesWithBlank: ['', ...classes],
