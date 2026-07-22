@@ -22,7 +22,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       setUser(await API.user());
-      setSchool(await API.school());
+
+      // Hydrate the school from storage; if the stored session predates the
+      // login response carrying `school`, pull it from /me so the rest of the
+      // app has a valid school._id.
+      const stored = await API.school();
+      if (stored?._id) {
+        setSchool(stored);
+      } else {
+        try {
+          const me = await API.get('/api/auth/me');
+          if (me?.school) { setSchool(me.school); await API.setSchool(me.school); }
+        } catch {}
+      }
       setReady(true);
     })();
   }, []);
@@ -51,8 +63,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSchool = useCallback(async () => {
     try {
       const stored = await API.school();
-      if (!stored?._id) return;
-      const fresh = await API.get(`/api/schools/${stored._id}`);
+
+      // A session created before /login returned a `school` field has no
+      // stored school, so `stored._id` is undefined. Previously this returned
+      // silently and every `school._id` consumer saw undefined — school-setup
+      // then PUT to /api/schools/undefined. Recover it from /me instead.
+      let id = stored?._id;
+      if (!id) {
+        const me = await API.get('/api/auth/me');
+        if (me?.school) {
+          setSchool(me.school);
+          await API.setSchool(me.school);
+          id = me.school._id;
+        }
+      }
+      if (!id) return;
+
+      const fresh = await API.get(`/api/schools/${id}`);
       if (fresh) { setSchool(fresh); await API.setSchool(fresh); }
     } catch {}
   }, []);
