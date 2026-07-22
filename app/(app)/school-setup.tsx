@@ -82,7 +82,15 @@ export default function SchoolSetup() {
     try {
       // Full-object PUT: the endpoint overwrites these lists wholesale, so send
       // the complete current state, not a patch.
-      const updated = await API.put(`/api/schools/${form._id}`, {
+      // Guard: without this the id silently interpolates as "undefined" and
+      // the request 404s with no indication of why.
+      const schoolId = form?._id ?? school?._id;
+      if (!schoolId) {
+        Alert.alert('Error', 'School not loaded yet. Please reload the page and try again.');
+        return;
+      }
+
+      const updated = await API.put(`/api/schools/${schoolId}`, {
         ...form,
         feeBillingDay: form.feeBillingDay ? day : form.feeBillingDay,
         feeReminderDay: form.feeReminderDay ? rem : form.feeReminderDay,
