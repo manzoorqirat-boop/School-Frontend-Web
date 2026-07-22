@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -250,7 +250,13 @@ const styles = StyleSheet.create({
   countLbl: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0 },
   summaryCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm, gap: 4 },
   summaryLine: { ...font.body, color: colors.ink },
-  saveBar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, backgroundColor: colors.bg },
+  saveBar: { padding: spacing.lg, backgroundColor: colors.bg,
+    borderTopWidth: 1, borderTopColor: colors.line,
+    // Was position:absolute/bottom:0 — anchored to the window, so on a tall
+    // desktop viewport it fell outside the visible scroll area. Sticky keeps
+    // it pinned to the bottom of the scroller on web; native stacks it inline.
+    ...(Platform.OS === 'web' ? { position: 'sticky' as any, bottom: 0, zIndex: 10 } : null),
+  },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs },
   toggleLabel: { ...font.title, color: colors.ink },
   confirmText: { ...font.body, color: colors.ink, marginBottom: spacing.sm },
