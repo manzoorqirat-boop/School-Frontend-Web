@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -294,5 +294,15 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, marginTop: spacing.sm },
   addText: { ...font.label, color: colors.primary, fontWeight: '600' },
   footNote: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: spacing.lg, lineHeight: 18 },
-  saveBar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, backgroundColor: colors.bg },
+  // Was position:absolute/bottom:0 — pinned to the bottom of the WINDOW, which
+  // on a tall desktop viewport puts it outside the visible scroll area (and it
+  // overlapped the last form row on phones). A sticky footer keeps it in view
+  // on web and simply sits at the end of the form on native.
+  saveBar: {
+    padding: spacing.lg,
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    ...(Platform.OS === 'web' ? { position: 'sticky' as any, bottom: 0, zIndex: 10 } : null),
+  },
 });
