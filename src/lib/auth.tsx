@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+ React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { API, SessionUser } from './api';
 
 type AuthState = {
