@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -266,5 +266,11 @@ const styles = StyleSheet.create({
   teachRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
   teachName: { ...font.body, color: colors.ink },
   hint: { ...font.label, color: colors.muted, fontStyle: 'italic' },
-  saveBar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, backgroundColor: colors.bg },
+  saveBar: { padding: spacing.lg, backgroundColor: colors.bg,
+    borderTopWidth: 1, borderTopColor: colors.line,
+    // Was position:absolute/bottom:0 — anchored to the window, so on a tall
+    // desktop viewport it fell outside the visible scroll area. Sticky keeps
+    // it pinned to the bottom of the scroller on web; native stacks it inline.
+    ...(Platform.OS === 'web' ? { position: 'sticky' as any, bottom: 0, zIndex: 10 } : null),
+  },
 });
