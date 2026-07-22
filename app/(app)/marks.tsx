@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -181,5 +181,11 @@ const styles = StyleSheet.create({
   absBtn: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.bg,
     alignItems: 'center', justifyContent: 'center' },
   absText: { ...font.caption, color: colors.slate },
-  saveBar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, backgroundColor: colors.bg },
+  saveBar: { padding: spacing.lg, backgroundColor: colors.bg,
+    borderTopWidth: 1, borderTopColor: colors.line,
+    // Was position:absolute/bottom:0 — anchored to the window, so on a tall
+    // desktop viewport it fell outside the visible scroll area. Sticky keeps
+    // it pinned to the bottom of the scroller on web; native stacks it inline.
+    ...(Platform.OS === 'web' ? { position: 'sticky' as any, bottom: 0, zIndex: 10 } : null),
+  },
 });
