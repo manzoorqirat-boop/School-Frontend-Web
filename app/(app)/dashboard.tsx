@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { API } from '@/lib/api';
 import { colors, spacing, font, radius, roleAccent, roleLabel, moduleColor } from '@/theme';
+import { Container, useGridColumns, gridItemWidth } from '@/components/responsive';
 
 export default function Dashboard() {
   const { user, school, signOut } = useAuth();
@@ -16,6 +17,11 @@ export default function Dashboard() {
   const accent = roleAccent(user?.role);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<{ students?: number; feesOutstanding?: number }>({});
+
+  // 3 tiles on a phone, more as the window grows — a fixed 31% would render
+  // ~600px squares on a desktop.
+  const cols = useGridColumns({ phone: 3, tablet: 4, desktop: 6 });
+  const tileW = gridItemWidth(cols);
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +72,7 @@ export default function Dashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.muted} />}
         showsVerticalScrollIndicator={false}
       >
+        <Container>
         {/* Top bar */}
         <View style={styles.topbar}>
           <View style={styles.roleRow}>
@@ -114,7 +121,7 @@ export default function Dashboard() {
         <Text style={styles.sectionLabel}>{t('dashboard.quickActions', 'Quick actions')}</Text>
         <View style={styles.grid}>
           {actions.map(a => (
-            <TouchableOpacity key={a.key} style={styles.tile} activeOpacity={0.7} onPress={() => router.push(a.route as any)}>
+            <TouchableOpacity key={a.key} style={[styles.tile, { width: tileW }]} activeOpacity={0.7} onPress={() => router.push(a.route as any)}>
               <View style={[styles.tileIcon, { backgroundColor: moduleColor(a.key) + '14' }]}>
                 <Ionicons name={a.icon} size={20} color={moduleColor(a.key)} />
               </View>
@@ -122,12 +129,13 @@ export default function Dashboard() {
             </TouchableOpacity>
           ))}
         </View>
+        </Container>
       </ScrollView>
     </View>
   );
 }
 
-const TILE = '31%';
+
 const styles = StyleSheet.create({
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xxl },
   roleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
@@ -149,7 +157,7 @@ const styles = StyleSheet.create({
 
   sectionLabel: { ...font.caption, color: colors.muted, textTransform: 'uppercase', marginTop: spacing.xxl, marginBottom: spacing.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
-  tile: { width: TILE, aspectRatio: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.md, justifyContent: 'space-between' },
+  tile: { aspectRatio: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.md, justifyContent: 'space-between' },
   tileIcon: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   tileLabel: { ...font.label, color: colors.ink, fontWeight: '600' },
 });
