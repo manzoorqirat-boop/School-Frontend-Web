@@ -1,0 +1,62 @@
+name: EAS Build & Submit
+
+# Trigger manually from the Actions tab, or on a version tag push (v1.0.1).
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Build profile'
+        type: choice
+        options:
+          - preview        # -> .apk you can install directly on a phone (TESTING)
+          - production     # -> .aab for Google Play (RELEASE)
+        default: preview
+      submit:
+        description: 'Also submit to Google Play? (only for production)'
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Android (EAS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Write Google service account key
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > google-service-account.json
+            echo "Service account key written."
+          else
+            echo "No service account secret set; skipping (fine for APK/build-only)."
+          fi
+
+      # Profile comes from the dropdown when run manually; defaults to preview
+      # (APK) for tag pushes too. Change to production when releasing to Play.
+      - name: Build
+        run: eas build --platform android --profile ${{ github.event.inputs.profile || 'preview' }} --non-interactive --no-wait
+
+      - name: Build & Submit to Google Play
+        if: ${{ github.event.inputs.submit == 'true' && github.event.inputs.profile == 'production' }}
+        run: eas build --platform android --profile production --non-interactive --auto-submit

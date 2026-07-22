@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "QMSoft School",
+    "slug": "qmschool",
+    "scheme": "qmschool",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#6D3CF0",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.qmsofts.school"
+    },
+    "android": {
+      "package": "com.qmsofts.school",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "apiBase": "https://schoolnet-production-ac7d.up.railway.app",
+      "eas": {
+        "projectId": "64bbf8cb-25b7-4727-b1bb-fb09e08e2b95"
+      }
+    },
+    "owner": "schooldotnet",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
