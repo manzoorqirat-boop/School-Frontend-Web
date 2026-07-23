@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 // Teacher marks entry: exam list → subject → grid → save.
 export default function Marks() {
@@ -26,7 +27,7 @@ export default function Marks() {
 
   const loadExams = useCallback(async () => {
     try { const data = await API.get('/api/exams'); setExams(data.items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { loadExams(); }, [loadExams]);
@@ -53,7 +54,7 @@ export default function Marks() {
       });
       setGrid(rows);
       setStep('grid');
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }
 
@@ -70,7 +71,7 @@ export default function Marks() {
     const bad = grid.filter(r => r.status !== 'absent' && r.marks !== ''
       && (isNaN(parseFloat(r.marks)) || parseFloat(r.marks) > r.maxMarks || parseFloat(r.marks) < 0));
     if (bad.length) {
-      Alert.alert('Invalid marks', `${bad.length} entr${bad.length === 1 ? 'y is' : 'ies are'} over max marks or invalid (shown in red). Fix before saving.`);
+      toast.error('Invalid marks', `${bad.length} entr${bad.length === 1 ? 'y is' : 'ies are'} over max marks or invalid (shown in red). Fix before saving.`);
       return;
     }
     setSaving(true);
@@ -81,9 +82,9 @@ export default function Marks() {
         maxMarks: r.maxMarks, status: r.status,
       }));
       const res = await API.post(`/api/exams/${exam._id}/marksheet/save`, { cells });
-      Alert.alert('Saved', `${res.saved} marks recorded.`);
+      toast.success('Saved', `${res.saved} marks recorded.`);
       setStep('subject');
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
