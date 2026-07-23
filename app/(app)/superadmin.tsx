@@ -7,7 +7,7 @@ import { themeForRole, colors, spacing, font, radius, moduleColor } from '@/them
 import { GradientHeader, StatTile, Card, Chip } from '@/components/ui';
 import { Field, ChipPicker, FormModal } from '@/components/screen';
 import { Ionicons } from '@expo/vector-icons';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 export default function Superadmin() {
   const { user, signOut } = useAuth();
