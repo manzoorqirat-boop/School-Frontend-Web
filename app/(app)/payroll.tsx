@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal, DateField } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const LEAVE_TINT: Record<string, string> = { pending: colors.warning, approved: colors.success, rejected: colors.danger };
@@ -52,7 +53,7 @@ export default function Payroll() {
         flat.sort((a, b) => String(b.fromDate).localeCompare(String(a.fromDate)));
         setLeaves(flat);
       }
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, [isTeacher, user?._id]);
   useEffect(() => { load(); }, [load]);
@@ -74,11 +75,11 @@ export default function Payroll() {
     setGenOpen(true);
   }
   async function generate() {
-    if (!genForm.teacherId) { Alert.alert('Missing', 'Select a teacher.'); return; }
+    if (!genForm.teacherId) { toast.error('Missing', 'Select a teacher.'); return; }
     const month = parseInt(genForm.month);
     const year = parseInt(genForm.year);
-    if (isNaN(month) || month < 1 || month > 12) { Alert.alert('Invalid', 'Select a month.'); return; }
-    if (isNaN(year) || year < 2000 || year > 2100) { Alert.alert('Invalid', 'Enter a valid 4-digit year.'); return; }
+    if (isNaN(month) || month < 1 || month > 12) { toast.error('Invalid', 'Select a month.'); return; }
+    if (isNaN(year) || year < 2000 || year > 2100) { toast.error('Invalid', 'Enter a valid 4-digit year.'); return; }
     setSaving(true);
     try {
       const slip = await API.post('/api/payroll/generate/teacher', {
@@ -86,7 +87,7 @@ export default function Payroll() {
       });
       setPayslips(prev => [slip, ...prev.filter(p => p._id !== slip._id)]);
       setGenOpen(false);
-    } catch (e: any) { Alert.alert('Failed', e.message); }   // surfaces "no active salary structure" etc.
+    } catch (e: any) { toast.error('Failed', e.message); }   // surfaces "no active salary structure" etc.
     finally { setSaving(false); }
   }
 
@@ -95,7 +96,7 @@ export default function Payroll() {
       const updated = await API.post(`/api/payroll/${slip._id}/${slip.status === 'locked' ? 'unlock' : 'lock'}`);
       setPayslips(prev => prev.map(p => p._id === slip._id ? updated : p));
       setView(updated);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   // ── Leaves ──────────────────────────────────────────────────────────────
@@ -107,13 +108,13 @@ export default function Payroll() {
   }
   async function applyLeave() {
     const f = applyForm;
-    if (!f.teacherId) { Alert.alert('Missing', 'Select a teacher.'); return; }
-    if (!f.type) { Alert.alert('Missing', 'Select a leave type.'); return; }
+    if (!f.teacherId) { toast.error('Missing', 'Select a teacher.'); return; }
+    if (!f.type) { toast.error('Missing', 'Select a leave type.'); return; }
     const bad = (v?: string) => !v || !/^\d{4}-\d{2}-\d{2}$/.test(v);
-    if (bad(f.fromDate) || bad(f.toDate)) { Alert.alert('Invalid', 'Dates must be YYYY-MM-DD.'); return; }
-    if (f.fromDate > f.toDate) { Alert.alert('Invalid', 'From date must be on or before To date.'); return; }
+    if (bad(f.fromDate) || bad(f.toDate)) { toast.error('Invalid', 'Dates must be YYYY-MM-DD.'); return; }
+    if (f.fromDate > f.toDate) { toast.error('Invalid', 'From date must be on or before To date.'); return; }
     const days = parseFloat(f.days);
-    if (!days || days <= 0) { Alert.alert('Invalid', 'Days must be a positive number (0.5 allowed).'); return; }
+    if (!days || days <= 0) { toast.error('Invalid', 'Days must be a positive number (0.5 allowed).'); return; }
     setSaving(true);
     try {
       await API.post('/api/payroll/leaves/apply', {
@@ -122,7 +123,7 @@ export default function Payroll() {
       });
       setApplyOpen(false);
       load();
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -130,7 +131,7 @@ export default function Payroll() {
     try {
       await API.post(`/api/payroll/leaves/${rec.leaveDocId}/records/${rec._id}/${action}`);
       setLeaves(prev => prev.map(r => r._id === rec._id ? { ...r, status: action === 'approve' ? 'approved' : 'rejected' } : r));
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   if (loading) return <Screen title={t('nav.payroll', 'Payroll')} colors={rt.gradient} onBack={() => router.back()}><Loading /></Screen>;
