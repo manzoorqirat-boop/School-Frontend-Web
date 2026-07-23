@@ -44,7 +44,9 @@ export default function Exams() {
   // ── View + results + publish ────────────────────────────────────────────
   async function openView(exam: any) {
     setView(exam); setResults(null);
-    try { const r = await API.get(`/api/exams/${exam._id}/results`); setResults(r.items ?? []); } catch {}
+    // /results now returns the full analytics package. We only need a headline
+    // count here; the detail lives on the dedicated results screen.
+    try { const r = await API.get(`/api/exams/${exam._id}/results`); setResults(r.rows ?? []); } catch {}
   }
   async function togglePublish(exam: any) {
     const publish = exam.status !== 'published';
@@ -176,11 +178,17 @@ export default function Exams() {
             <Row k="Dates" v={`${String(view.fromDate ?? '').slice(0,10)} → ${String(view.toDate ?? '').slice(0,10)}`} />
             <Row k="Subjects" v={(view.subjects ?? []).map((s: any) => `${s.subjectName} (${s.maxMarks})`).join(', ')} />
             <Row k="Status" v={view.status ?? 'draft'} />
-            {results !== null && <Row k="Results entered" v={`${results.length}`} />}
+            {results !== null && (
+              <Row k="Results entered" v={`${results.filter((r: any) => !r.anyMissing).length}/${results.length}`} />
+            )}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
               {can(user, 'exam:publish') && (
                 <ActBtn icon={view.status === 'published' ? 'eye-off-outline' : 'megaphone-outline'}
                   label={view.status === 'published' ? 'Unpublish' : 'Publish'} primary onPress={() => togglePublish(view)} />
+              )}
+              {(results?.length ?? 0) > 0 && (
+                <ActBtn icon="stats-chart-outline" label="Results" primary
+                  onPress={() => { const v = view; setView(null); router.push({ pathname: '/(app)/exam-results', params: { id: v._id, name: v.name } } as any); }} />
               )}
               {can(user, 'exam:create') && <ActBtn icon="pencil-outline" label="Edit" onPress={() => openEdit(view)} />}
               {can(user, 'exam:create') && <ActBtn icon="trash-outline" label="Delete" danger onPress={() => confirmDelete(view)} />}
