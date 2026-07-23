@@ -107,7 +107,9 @@ export default function StaffReportCards() {
         + `${report.academicYear ? ` &middot; ${report.academicYear}` : ''}</p>`;
 
       (report.exams ?? []).forEach((ex: any) => {
-        body += `<h2>${ex.examName} — ${ex.percentage}% (${ex.totalObtained}/${ex.totalMax})</h2>`;
+        const t = ex.totals ?? {};
+        body += `<h2>${ex.exam?.name ?? ''} — ${t.overallPct ?? 0}% (${t.totalObtained ?? 0}/${t.totalMax ?? 0})`
+          + `${t.overallGrade ? ` &middot; Grade ${t.overallGrade}` : ''}</h2>`;
         body += htmlTable(['Subject', 'Marks', 'Grade'],
           (ex.subjects ?? []).map((sub: any) => [
             sub.subjectName,
@@ -115,6 +117,12 @@ export default function StaffReportCards() {
             sub.grade ?? '',
           ]));
       });
+
+      if (report.composite && (report.composite.subjects ?? []).length > 0) {
+        body += `<h2>Final (weighted) — ${report.composite.overallFinalPercentage}%</h2>`;
+        body += htmlTable(['Subject', 'Final %'],
+          report.composite.subjects.map((cs: any) => [cs.subjectName, `${cs.finalPercentage}%`]));
+      }
 
       if ((report.exams ?? []).length === 0) body += '<p>No results recorded yet.</p>';
 
@@ -138,8 +146,8 @@ export default function StaffReportCards() {
     const exams: any[] = report?.exams ?? [];
     // Overall across every exam in the year — the aggregate a report card leads
     // with. Computed here because the API returns per-exam totals only.
-    const totObt = exams.reduce((a, e) => a + money(e.totalObtained), 0);
-    const totMax = exams.reduce((a, e) => a + money(e.totalMax), 0);
+    const totObt = exams.reduce((a, e) => a + money(e.totals?.totalObtained), 0);
+    const totMax = exams.reduce((a, e) => a + money(e.totals?.totalMax), 0);
     const overall = totMax > 0 ? Math.round((totObt * 1000) / totMax) / 10 : 0;
 
     return (
@@ -158,6 +166,25 @@ export default function StaffReportCards() {
               text={`No results recorded for this student${report?.academicYear ? ` in ${report.academicYear}` : ''} yet. Enter marks from Marks Entry first.`} />
           ) : (
             <>
+              {report?.school && (
+                <Card>
+                  <Text style={styles.schoolName}>{report.school.name}</Text>
+                  {[report.school.address, report.school.city, report.school.state, report.school.pincode]
+                    .filter(Boolean).length > 0 && (
+                    <Text style={styles.schoolAddr}>
+                      {[report.school.address, report.school.city, report.school.state, report.school.pincode]
+                        .filter(Boolean).join(', ')}
+                    </Text>
+                  )}
+                  <View style={styles.detailGrid}>
+                    <Detail label="Admission" value={st.admissionNo} />
+                    <Detail label="Roll" value={st.rollNo} />
+                    <Detail label="Father" value={st.fatherName} />
+                    <Detail label="Mother" value={st.motherName} />
+                  </View>
+                </Card>
+              )}
+
               <Card>
                 <Text style={styles.overallLabel}>Overall</Text>
                 <Text style={[styles.overallPct, { color: gradeTint(overall) }]}>{overall}%</Text>
@@ -169,12 +196,16 @@ export default function StaffReportCards() {
               {exams.map((ex, i) => (
                 <Card key={i}>
                   <View style={styles.examHead}>
-                    <Text style={styles.examName}>{ex.examName}</Text>
-                    <Text style={[styles.examPct, { color: gradeTint(money(ex.percentage)) }]}>
-                      {ex.percentage}%
+                    <Text style={styles.examName}>{ex.exam?.name}</Text>
+                    <Text style={[styles.examPct, { color: gradeTint(money(ex.totals?.overallPct)) }]}>
+                      {ex.totals?.overallPct}%
                     </Text>
                   </View>
-                  <Text style={styles.examSub}>{ex.totalObtained}/{ex.totalMax}</Text>
+                  <Text style={styles.examSub}>
+                    {ex.totals?.totalObtained}/{ex.totals?.totalMax}
+                    {ex.totals?.overallGrade ? `  \u00b7  Grade ${ex.totals.overallGrade}` : ''}
+                    {ex.exam?.weightInFinal > 0 ? `  \u00b7  weight ${ex.exam.weightInFinal}%` : ''}
+                  </Text>
 
                   <View style={styles.tableHead}>
                     <Text style={[styles.th, { flex: 2 }]}>Subject</Text>
@@ -183,7 +214,8 @@ export default function StaffReportCards() {
                   </View>
                   {(ex.subjects ?? []).map((sub: any, k: number) => {
                     const absent = sub.status === 'absent';
-                    const exempt = sub.status === 'exempted';
+                    // Wire value is 'exempt' (ExamResultStatus.Exempt), not 'exempted'.
+                    const exempt = sub.status === 'exempt';
                     return (
                       <View key={k} style={styles.tr}>
                         <Text style={[styles.td, { flex: 2 }]} numberOfLines={1}>{sub.subjectName}</Text>
@@ -200,6 +232,29 @@ export default function StaffReportCards() {
                   })}
                 </Card>
               ))}
+
+              {report?.composite && (report.composite.subjects ?? []).length > 0 && (
+                <Card>
+                  <View style={styles.examHead}>
+                    <Text style={styles.examName}>Final (weighted)</Text>
+                    <Text style={[styles.examPct, { color: gradeTint(money(report.composite.overallFinalPercentage)) }]}>
+                      {report.composite.overallFinalPercentage}%
+                    </Text>
+                  </View>
+                  <Text style={styles.examSub}>
+                    Weighted across exams totalling {report.composite.sumWeights}%
+                  </Text>
+                  {(report.composite.subjects ?? []).map((cs: any, k: number) => (
+                    <View key={k} style={styles.tr}>
+                      <Text style={[styles.td, { flex: 2 }]} numberOfLines={1}>{cs.subjectName}</Text>
+                      <Text style={[styles.td, { width: 70, textAlign: 'right', fontWeight: '700',
+                        color: gradeTint(money(cs.finalPercentage)) }]}>
+                        {cs.finalPercentage}%
+                      </Text>
+                    </View>
+                  ))}
+                </Card>
+              )}
             </>
           )}
         </ScrollView>
@@ -246,6 +301,16 @@ export default function StaffReportCards() {
   );
 }
 
+function Detail({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <View style={styles.detailCell}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
@@ -257,6 +322,13 @@ const styles = StyleSheet.create({
   rollText: { ...font.label, fontWeight: '800' },
   name: { ...font.body, color: colors.ink, fontWeight: '600' },
   sub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
+
+  schoolName: { ...font.h3, color: colors.ink, fontWeight: '800' },
+  schoolAddr: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 2 },
+  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm },
+  detailCell: { width: '50%', paddingVertical: 4 },
+  detailLabel: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0 },
+  detailValue: { ...font.body, color: colors.ink, fontWeight: '600' },
 
   overallLabel: { ...font.label, color: colors.muted },
   overallPct: { ...font.h1, fontWeight: '800', marginTop: 2 },
