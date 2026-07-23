@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { ToastProvider } from '@/components/toast';
+import { I18nProvider } from '@/i18n';
 import { homeForRole } from '@/lib/api';
 import { View, ActivityIndicator } from 'react-native';
 import { colors } from '@/theme';
@@ -48,12 +49,14 @@ function Guard() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <StatusBar style="light" />
-          <Guard />
-        </ToastProvider>
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <StatusBar style="light" />
+            <Guard />
+          </ToastProvider>
+        </AuthProvider>
+      </I18nProvider>
     </SafeAreaProvider>
   );
 }
