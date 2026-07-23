@@ -63,6 +63,9 @@ export default function Dashboard() {
     // dashboard even though the API grants them 'exam:grade'. The exam and
     // report-card flow is unusable for an admin-run school without this.
     { key: 'marks', label: t('nav.marks', 'Marks Entry'), icon: 'create-outline', route: '/(app)/marks', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
+    // Staff report-card viewer. NOT report-cards.tsx — that one reads the
+    // signed-in user's own children/self, so it is empty for staff.
+    { key: 'report-cards', label: t('nav.reportCards', 'Report Cards'), icon: 'ribbon-outline', route: '/(app)/staff-report-cards', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
     { key: 'my-classes', label: t('nav.myClasses', 'My Classes'), icon: 'easel-outline', route: '/(app)/my-classes', show: r === 'teacher' },
     { key: 'exams', label: t('nav.exams', 'Exams'), icon: 'document-text-outline', route: '/(app)/exams', show: true },
     { key: 'exam-config', label: t('nav.examConfig', 'Exam Config'), icon: 'options-outline', route: '/(app)/exam-config', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
