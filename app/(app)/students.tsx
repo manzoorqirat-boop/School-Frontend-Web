@@ -11,7 +11,7 @@ import { exportCSV } from '@/lib/export';
 import { translitEnToHi } from '@/lib/translit';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, SearchBar, ListItem, Avatar, EmptyState, Loading, Field, ChipPicker, FormModal, Collapsible, DateField, AcademicYearPicker } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 
 // Public student-profile links resolve on the web frontend, not the API host.
