@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ChipPicker, EmptyState, Loading, FormModal } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 
 type Row = {
@@ -64,8 +65,8 @@ export default function Promote() {
   };
 
   const build = useCallback(async () => {
-    if (!fromAY || !toAY) { Alert.alert('Missing', 'Choose both academic years.'); return; }
-    if (fromAY === toAY) { Alert.alert('Invalid', 'From and To academic years must differ.'); return; }
+    if (!fromAY || !toAY) { toast.error('Missing', 'Choose both academic years.'); return; }
+    if (fromAY === toAY) { toast.error('Invalid', 'From and To academic years must differ.'); return; }
     setBuilding(true); setRows(null);
     try {
       const resp = await API.get('/api/students?limit=5000');
@@ -81,7 +82,7 @@ export default function Promote() {
         g.count += 1; groups.set(key, g);
       });
 
-      if (groups.size === 0) { Alert.alert('No students', `No active students found for ${fromAY}.`); setBuilding(false); return; }
+      if (groups.size === 0) { toast.warn('No students', `No active students found for ${fromAY}.`); setBuilding(false); return; }
 
       const ordered = [...groups.values()].sort((a, b) => {
         const ai = classOrder.indexOf(a.cls), bi = classOrder.indexOf(b.cls);
@@ -97,7 +98,7 @@ export default function Promote() {
           toSection: g.sec, count: g.count, graduate: terminal,
         };
       }));
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setBuilding(false); }
   }, [fromAY, toAY, classOrder]);
 
@@ -120,7 +121,7 @@ export default function Promote() {
 
   async function submit() {
     const err = validate();
-    if (err) { Alert.alert('Fix first', err); return; }
+    if (err) { toast.error('Fix first', err); return; }
     setSaving(true);
     try {
       const promotions = (rows ?? []).filter(r => !r.graduate).map(r => ({
@@ -134,8 +135,8 @@ export default function Promote() {
       });
       setConfirmOpen(false);
       setRows(null);
-      Alert.alert('Promotion complete', `${res.totalPromoted ?? 0} student(s) moved from ${fromAY} to ${toAY}.`);
-    } catch (e: any) { Alert.alert('Promotion failed', e.message); }
+      toast.success('Promotion complete', `${res.totalPromoted ?? 0} student(s) moved from ${fromAY} to ${toAY}.`);
+    } catch (e: any) { toast.error('Promotion failed', e.message); }
     finally { setSaving(false); }
   }
 
