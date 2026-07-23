@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, roleLabel, moduleColor } from '@/theme';
 import { Screen, SearchBar, ListItem, Avatar, EmptyState, Loading, Field, ChipPicker, FormModal } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const ROLES = ['school_admin', 'principal', 'accountant', 'teacher', 'parent', 'student'];
 
@@ -48,7 +49,7 @@ export default function Users() {
 
   const load = useCallback(async () => {
     try { const data = await API.get('/api/users?limit=500'); setUsers(data.items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -86,7 +87,7 @@ export default function Users() {
   }
 
   async function save() {
-    if (!form.name?.trim()) { Alert.alert('Missing', 'Name is required.'); return; }
+    if (!form.name?.trim()) { toast.error('Missing', 'Name is required.'); return; }
     setSaving(true);
     try {
       if (editing) {
@@ -97,9 +98,9 @@ export default function Users() {
         });
         setUsers(prev => prev.map(x => x._id === editing._id ? updated : x));
       } else {
-        if (!form.username?.trim()) { Alert.alert('Missing', 'Username is required.'); setSaving(false); return; }
+        if (!form.username?.trim()) { toast.error('Missing', 'Username is required.'); setSaving(false); return; }
         const pwErr = passwordError(form.password);
-        if (pwErr) { Alert.alert('Weak password', pwErr); setSaving(false); return; }
+        if (pwErr) { toast.error('Weak password', pwErr); setSaving(false); return; }
         const created = await API.post('/api/users', {
           username: form.username.trim(), password: form.password, name: form.name.trim(),
           role: form.role, email: form.email || undefined, phone: form.phone || undefined,
@@ -108,7 +109,8 @@ export default function Users() {
         setUsers(prev => [created, ...prev]);
       }
       setFormOpen(false);
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+      toast.success(editing ? 'User updated' : 'User created', form.name?.trim());
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -116,24 +118,29 @@ export default function Users() {
   function openReset(u: any) { setView(null); setResetFor(u); setResetPw(''); }
   async function doReset() {
     const err = passwordError(resetPw);
-    if (err) { Alert.alert('Weak password', err); return; }
+    if (err) { toast.error('Weak password', err); return; }
     setSaving(true);
     try {
       await API.post(`/api/users/${resetFor._id}/reset-password`, { newPassword: resetPw });
       setResetFor(null);
-      Alert.alert('Password reset', `${resetFor.name} will be signed out of all devices and must log in with the new password.`);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+      toast.success('Password reset', `${resetFor.name} will be signed out of all devices and must log in with the new password.`);
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
-  function deactivate(u: any) {
-    Alert.alert('Deactivate user', `Deactivate ${u.name}? They will no longer be able to log in.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Deactivate', style: 'destructive', onPress: async () => {
-        try { await API.del(`/api/users/${u._id}`); setUsers(prev => prev.map(x => x._id === u._id ? { ...x, isActive: false } : x)); setView(null); }
-        catch (e: any) { Alert.alert('Failed', e.message); }
-      }},
-    ]);
+  async function deactivate(u: any) {
+    const ok = await confirm({
+      title: 'Deactivate user',
+      message: `Deactivate ${u.name}? They will no longer be able to log in.`,
+      confirmLabel: 'Deactivate', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await API.del(`/api/users/${u._id}`);
+      setUsers(prev => prev.map(x => x._id === u._id ? { ...x, isActive: false } : x));
+      setView(null);
+      toast.success('User deactivated', `${u.name} can no longer sign in.`);
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   function toggleKid(id: string) {
