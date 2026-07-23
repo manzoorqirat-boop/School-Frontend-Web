@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { can } from '@/lib/privileges';
 import { colors, spacing, font, radius, themeForRole, roleTheme } from '@/theme';
 import { Screen, Field, FormModal, Avatar } from '@/components/screen';
 import { useI18n } from '@/i18n';
+import { toast } from '@/components/toast';
 
 
 function passwordError(pw?: string): string | null {
@@ -30,16 +31,16 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
 
   async function changePassword() {
-    if (!pw.oldPassword || !pw.newPassword) { Alert.alert('Missing', 'Both fields are required.'); return; }
+    if (!pw.oldPassword || !pw.newPassword) { toast.error('Missing', 'Both fields are required.'); return; }
     const err = passwordError(pw.newPassword);
-    if (err) { Alert.alert('Weak password', err); return; }
-    if (pw.newPassword !== pw.confirm) { Alert.alert('Mismatch', 'New password and confirmation do not match.'); return; }
+    if (err) { toast.error('Weak password', err); return; }
+    if (pw.newPassword !== pw.confirm) { toast.error('Mismatch', 'New password and confirmation do not match.'); return; }
     setSaving(true);
     try {
       await API.post('/api/auth/change-password', { oldPassword: pw.oldPassword, newPassword: pw.newPassword });
       setPwOpen(false); setPw({});
-      Alert.alert('Done', 'Password changed. You may need to sign in again.');
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+      toast.success('Done', 'Password changed. You may need to sign in again.');
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -79,11 +80,13 @@ export default function Settings() {
       {/* Actions */}
       <Text style={styles.section}>{t('settings.account', 'Account')}</Text>
       <Row icon="key" label={t('settings.changePassword', 'Change password')} onPress={() => setPwOpen(true)} />
-      <Row icon="log-out" label={t('nav.logout', 'Sign out')} tint={colors.danger} onPress={() =>
-        Alert.alert('Sign out', 'Are you sure?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign out', style: 'destructive', onPress: signOut },
-        ])} />
+      <Row icon="log-out" label={t('nav.logout', 'Sign out')} tint={colors.danger} onPress={async () => {
+        const ok = await confirm({
+          title: 'Sign out', message: 'Are you sure?',
+          confirmLabel: 'Sign out', destructive: true,
+        });
+        if (ok) signOut();
+      }} />
 
       <Text style={styles.version}>QMSoft School · v1.0.0</Text>
 
