@@ -8,7 +8,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, roleTheme, moduleColor } from '@/theme';
 import { Screen, Loading, EmptyState } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 type Cfg = { roles: string[]; isCustomized: boolean; default?: string[] };
 
@@ -24,6 +24,7 @@ export default function Privileges() {
   const [privileges, setPrivileges] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +48,10 @@ export default function Privileges() {
     setSavingKey(priv);
     try {
       await API.put(`/api/privileges/${encodeURIComponent(priv)}`, { roles: nextRoles });
+      // A brief per-row tick confirms the write landed. A toast per toggle would
+      // be far too noisy on a matrix this size.
+      setSavedKey(priv);
+      setTimeout(() => setSavedKey(k => (k === priv ? null : k)), 1500);
     } catch (e: any) {
       toast.error('Save failed', e.message);
       setMatrix(prev => ({ ...prev, [priv]: cur }));  // revert only this row
@@ -84,10 +89,31 @@ export default function Privileges() {
   if (loading) return <Screen title={t('nav.privileges', 'Privileges')} colors={rt.gradient} onBack={() => router.back()}><Loading /></Screen>;
 
   return (
-    <Screen title={t('nav.privileges', 'Privileges')} subtitle={editable ? 'Tap to toggle' : 'Read only'}
+    <Screen title={t('nav.privileges', 'Privileges')}
+      subtitle={editable ? 'Changes save automatically' : 'Read only'}
       colors={rt.gradient} onBack={() => router.back()} scroll={false}
       right={editable ? <TouchableOpacity onPress={resetAll} style={styles.resetBtn}><Ionicons name="refresh" size={20} color={colors.ink} /></TouchableOpacity> : undefined}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+        {/* There is no Save button by design — each tag toggle PUTs immediately.
+            Without this banner that reads as "the save option is missing", so
+            state the contract up front. */}
+        {editable ? (
+          <View style={styles.banner}>
+            <Ionicons name="information-circle" size={16} color={colors.info} />
+            <Text style={styles.bannerText}>
+              Tap any role tag to grant or revoke. Each change is saved to the server immediately —
+              there's no separate Save step. The amber dot marks a privilege that differs from defaults.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.banner}>
+            <Ionicons name="lock-closed" size={16} color={colors.muted} />
+            <Text style={styles.bannerText}>
+              You can view the privilege matrix but not change it. Editing requires the
+              "user:manage" privilege (School Admin or Superadmin).
+            </Text>
+          </View>
+        )}
         {/* Role reset chips */}
         {editable && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: spacing.md }}>
@@ -111,6 +137,12 @@ export default function Privileges() {
                 <Text style={styles.privName}>{priv}</Text>
                 {cfg.isCustomized && <View style={styles.customDot} />}
                 {savingKey === priv && <Text style={styles.saving}>saving…</Text>}
+                {savedKey === priv && savingKey !== priv && (
+                  <View style={styles.savedRow}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                    <Text style={styles.savedText}>saved</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.roleGrid}>
                 {roles.map(role => {
@@ -144,6 +176,11 @@ const styles = StyleSheet.create({
   privName: { ...font.title, color: colors.ink },
   customDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.amber },
   saving: { ...font.caption, color: colors.muted, marginLeft: 'auto' },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 'auto' },
+  savedText: { ...font.caption, color: colors.success },
+  banner: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  bannerText: { ...font.caption, color: colors.slate, flex: 1, textTransform: 'none', letterSpacing: 0, lineHeight: 17 },
   roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   roleTag: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
   roleTagText: { ...font.caption },
