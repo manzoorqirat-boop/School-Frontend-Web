@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -9,6 +9,7 @@ import { useI18n } from '@/i18n';
 import { exportCSV } from '@/lib/export';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, SearchBar, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal, DateField } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const STATUS_TINT: Record<string, string> = { pending: colors.warning, partial: colors.info, paid: colors.success, overdue: colors.danger, cancelled: colors.muted };
 const newIdemKey = () => `mob-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -40,7 +41,7 @@ export default function Fees() {
 
   const load = useCallback(async () => {
     try { const data = await API.get('/api/invoices?limit=500'); setInvoices(data.items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -66,29 +67,29 @@ export default function Fees() {
   async function loadPayments(invId: string) {
     try { const r = await API.get(`/api/invoices/${invId}/payments`); setPayments(r.items ?? []); } catch { setPayments([]); }
   }
-
   async function setChequeStatus(payment: any, status: 'success' | 'bounced') {
     const verb = status === 'success' ? 'clear' : 'bounce';
-    Alert.alert(`Mark cheque ${verb}ed`,
-      status === 'success'
+    const ok = await confirm({
+      title: `Mark cheque ${verb}ed`,
+      message: status === 'success'
         ? `Confirm cheque ${payment.chequeNo ?? ''} has cleared? The invoice will be credited ₹${(payment.amount ?? 0).toLocaleString('en-IN')}.`
         : `Mark cheque ${payment.chequeNo ?? ''} as bounced? The invoice will not be credited.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: status === 'success' ? 'Clear' : 'Bounce', style: status === 'success' ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              const res = await API.patch(`/api/invoices/${detail._id}/payments/${payment._id}/cheque-status`, { status });
-              setPayments(prev => prev.map(p => p._id === payment._id ? (res.payment ?? { ...p, status }) : p));
-              if (res.invoice) {
-                setDetail((d: any) => ({ ...d, ...res.invoice }));
-                setInvoices(prev => prev.map(x => x._id === detail._id ? { ...x, ...res.invoice } : x));
-              }
-            } catch (e: any) { Alert.alert('Failed', e.message); }
-          } },
-      ]);
+      confirmLabel: status === 'success' ? 'Clear' : 'Bounce',
+      destructive: status !== 'success',
+    });
+    if (!ok) return;
+    try {
+      const res = await API.patch(`/api/invoices/${detail._id}/payments/${payment._id}/cheque-status`, { status });
+      setPayments(prev => prev.map(p => p._id === payment._id ? (res.payment ?? { ...p, status }) : p));
+      if (res.invoice) {
+        setDetail((d: any) => ({ ...d, ...res.invoice }));
+        setInvoices(prev => prev.map(x => x._id === detail._id ? { ...x, ...res.invoice } : x));
+      }
+      toast.success(
+        status === 'success' ? 'Cheque cleared' : 'Cheque bounced',
+        status === 'success' ? 'The invoice has been credited.' : 'The invoice was not credited.');
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
-
   // ── Pay (idempotent) ────────────────────────────────────────────────────
   function openPay(inv: any) {
     const balance = (inv.total ?? 0) - (inv.amountPaid ?? 0);
@@ -101,15 +102,15 @@ export default function Fees() {
   async function collect() {
     const amt = parseFloat(payForm.amount);
     const bal = (pay.total ?? 0) - (pay.amountPaid ?? 0);
-    if (!amt || amt <= 0) { Alert.alert('Invalid', 'Enter a valid amount.'); return; }
+    if (!amt || amt <= 0) { toast.error('Invalid', 'Enter a valid amount.'); return; }
     if (payForm.method === 'cheque' && (!payForm.chequeNo?.trim() || !payForm.chequeBank?.trim())) {
-      Alert.alert('Missing', 'Cheque number and bank are required for cheque payments.'); return;
+      toast.error('Missing', 'Cheque number and bank are required for cheque payments.'); return;
     }
     if (payForm.method === 'cheque' && payForm.chequeDate && !/^\d{4}-\d{2}-\d{2}$/.test(payForm.chequeDate)) {
-      Alert.alert('Invalid date', 'Cheque date must be YYYY-MM-DD.'); return;
+      toast.error('Invalid date', 'Cheque date must be YYYY-MM-DD.'); return;
     }
     if (['upi', 'card', 'bank_transfer'].includes(payForm.method) && !payForm.transactionRef?.trim()) {
-      Alert.alert('Missing', 'Transaction reference is required for this method.'); return;
+      toast.error('Missing', 'Transaction reference is required for this method.'); return;
     }
     const proceed = async () => {
       setSaving(true);
@@ -123,17 +124,19 @@ export default function Fees() {
         });
         setInvoices(prev => prev.map(x => x._id === pay._id ? (res.invoice ?? x) : x));
         setPay(null);
-        Alert.alert('Payment recorded',
-          payForm.method === 'cheque'
+        toast.success('Payment recorded', payForm.method === 'cheque'
             ? `Cheque recorded as pending (Receipt ${res.payment?.receiptNo ?? ''}). The invoice will be credited once you mark the cheque cleared.`
             : `Receipt ${res.payment?.receiptNo ?? ''}`);
-      } catch (e: any) { Alert.alert('Payment failed', e.message); }
+      } catch (e: any) { toast.error('Payment failed', e.message); }
       finally { setSaving(false); }
     };
     if (amt > bal) {
-      Alert.alert('Overpayment', `Amount exceeds balance of ₹${bal.toLocaleString('en-IN')}. Record anyway?`, [
-        { text: 'Cancel', style: 'cancel' }, { text: 'Record', onPress: proceed },
-      ]);
+      const ok = await confirm({
+        title: 'Overpayment',
+        message: `Amount exceeds balance of ₹${bal.toLocaleString('en-IN')}. Record anyway?`,
+        confirmLabel: 'Record',
+      });
+      if (ok) await proceed();
     } else await proceed();
   }
 
@@ -141,14 +144,15 @@ export default function Fees() {
   function openDiscount(inv: any) { setDetail(null); setDisc(inv); setDiscForm({ discount: String(inv.discount ?? ''), reason: inv.discountReason ?? '' }); }
   async function applyDiscount() {
     const d = parseFloat(discForm.discount);
-    if (isNaN(d) || d < 0) { Alert.alert('Invalid', 'Enter a valid discount amount (0 or more).'); return; }
-    if (d > (disc.subtotal ?? 0)) { Alert.alert('Invalid', 'Discount cannot exceed the subtotal.'); return; }
+    if (isNaN(d) || d < 0) { toast.error('Invalid', 'Enter a valid discount amount (0 or more).'); return; }
+    if (d > (disc.subtotal ?? 0)) { toast.error('Invalid', 'Discount cannot exceed the subtotal.'); return; }
     setSaving(true);
     try {
       const updated = await API.post(`/api/invoices/${disc._id}/discount`, { discount: d, reason: discForm.reason });
       setInvoices(prev => prev.map(x => x._id === disc._id ? updated : x));
       setDisc(null);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+      toast.success('Discount applied', `New total \u20b9${(updated?.total ?? 0).toLocaleString('en-IN')}`);
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -156,10 +160,10 @@ export default function Fees() {
   async function openGenerate() {
     setGenOpen(true); setGenForm({});
     try { const data = await API.get('/api/fee-structures'); setStructures(Array.isArray(data) ? data : data.items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
   }
   async function generate() {
-    if (!genForm.structureId) { Alert.alert('Missing', 'Select a fee structure.'); return; }
+    if (!genForm.structureId) { toast.error('Missing', 'Select a fee structure.'); return; }
     setSaving(true);
     try {
       const res = await API.post('/api/invoices/generate', {
@@ -167,9 +171,9 @@ export default function Fees() {
         installmentName: genForm.installment || undefined,
       });
       setGenOpen(false);
-      Alert.alert('Invoices generated', `Created ${res.created ?? 0}, skipped ${res.skipped ?? 0} (already existed).`);
+      toast.success('Invoices generated', `Created ${res.created ?? 0}, skipped ${res.skipped ?? 0} (already existed).`);
       load();
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -177,7 +181,7 @@ export default function Fees() {
     try {
       await exportCSV('fees', ['Invoice', 'Student', 'Class', 'Total', 'Paid', 'Due', 'Status'],
         filtered.map(i => [i.invoiceNo, i.studentName, `${i.studentClass ?? ''}-${i.studentSection ?? ''}`, i.total ?? 0, i.amountPaid ?? 0, (i.total ?? 0) - (i.amountPaid ?? 0), i.status ?? 'pending']));
-    } catch (e: any) { Alert.alert('Export failed', e.message); }
+    } catch (e: any) { toast.error('Export failed', e.message); }
   }
 
   if (loading) return <Screen title={t('nav.fees', 'Fees')} colors={rt.gradient} onBack={() => router.back()}><Loading /></Screen>;
