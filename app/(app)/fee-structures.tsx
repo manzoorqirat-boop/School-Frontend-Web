@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -9,6 +9,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal, DateField, AcademicYearPicker } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const FREQ = ['annual', 'monthly', 'quarterly', 'one_time'];
 
@@ -33,7 +34,7 @@ export default function FeeStructures() {
 
   const load = useCallback(async () => {
     try { const data = await API.get<any[]>('/api/fee-structures'); setStructures(Array.isArray(data) ? data : (data as any).items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -57,13 +58,13 @@ export default function FeeStructures() {
   const instSum = insts.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0);
 
   async function save() {
-    if (!meta.name?.trim()) { Alert.alert('Missing', 'Structure name is required.'); return; }
+    if (!meta.name?.trim()) { toast.error('Missing', 'Structure name is required.'); return; }
     const cleanHeads = heads.map(h => ({ name: h.name.trim(), amount: parseFloat(h.amount) || 0, frequency: h.frequency, isOptional: h.isOptional })).filter(h => h.name && h.amount > 0);
-    if (!cleanHeads.length) { Alert.alert('Missing', 'Add at least one fee head with an amount.'); return; }
+    if (!cleanHeads.length) { toast.error('Missing', 'Add at least one fee head with an amount.'); return; }
     const cleanInsts = insts.map(i => ({ name: i.name.trim(), dueDate: i.dueDate, percentage: parseFloat(i.percentage) || 0 })).filter(i => i.name && i.dueDate);
     if (cleanInsts.length) {
       const sum = cleanInsts.reduce((s, i) => s + i.percentage, 0);
-      if (Math.abs(sum - 100) > 0.01) { Alert.alert('Invalid', `Installment percentages must sum to 100 (currently ${sum.toFixed(2)}).`); return; }
+      if (Math.abs(sum - 100) > 0.01) { toast.error('Invalid', `Installment percentages must sum to 100 (currently ${sum.toFixed(2)}).`); return; }
     }
     setSaving(true);
     try {
@@ -71,7 +72,8 @@ export default function FeeStructures() {
       const saved = editId ? await API.put(`/api/fee-structures/${editId}`, body) : await API.post('/api/fee-structures', body);
       setStructures(prev => editId ? prev.map(x => x._id === editId ? saved : x) : [saved, ...prev]);
       setOpen(false);
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+      toast.success(editId ? 'Structure updated' : 'Structure created', saved?.name ?? meta.name?.trim());
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
