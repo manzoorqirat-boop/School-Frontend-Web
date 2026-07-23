@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { API } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -9,6 +9,7 @@ import { Screen, EmptyState, Loading } from '@/components/screen';
 import { Card } from '@/components/ui';
 import { exportHTML, htmlTable } from '@/lib/export';
 import { Ionicons } from '@expo/vector-icons';
+import { toast } from '@/components/toast';
 
 // Report cards for parent/student. Parents with multiple children get a switcher.
 export default function ReportCards() {
@@ -41,7 +42,7 @@ export default function ReportCards() {
     if (!sid) { setLoading(false); return; }
     setLoading(true);
     try { const data = await API.get(`/api/report-cards/student/${sid}`); setReport(data); }
-    catch (e: any) { Alert.alert('Error', e.message); setReport(null); }
+    catch (e: any) { toast.error('Error', e.message); setReport(null); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(activeChild); }, [activeChild, load]);
@@ -57,7 +58,7 @@ export default function ReportCards() {
           (ex.subjects ?? []).map((sub: any) => [sub.subjectName, sub.status === 'absent' ? 'AB' : `${sub.marksObtained ?? '-'}/${sub.maxMarks}`, sub.grade ?? '']));
       });
       await exportHTML(`report-card-${name}`, `Report Card — ${name}`, body);
-    } catch (e: any) { Alert.alert('Export failed', e.message); }
+    } catch (e: any) { toast.error('Export failed', e.message); }
   }
 
   return (
