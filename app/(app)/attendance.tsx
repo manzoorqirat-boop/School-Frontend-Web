@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ChipPicker, Avatar, EmptyState, Loading, Field, FormModal } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 const PERIODS = ['1','2','3','4','5','6','7','8'];
 const STATUSES = [
@@ -74,7 +75,7 @@ export default function Attendance() {
       });
       setMarks(initial);
       setNotes(initialNotes);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, [cls, sec, date, mode, period, subject]);
 
@@ -92,10 +93,9 @@ export default function Attendance() {
       if (mode === 'period') { body.period = parseInt(period); if (subject.trim()) body.subject = subject.trim(); }
       const res = await API.post('/api/attendance/mark-bulk', body);
       const errCount = (res.errors ?? []).length;
-      Alert.alert(errCount ? 'Saved with issues' : 'Saved',
-        `${res.created ?? 0} new · ${res.updated ?? 0} updated · ${res.unchanged ?? 0} unchanged${errCount ? `\n${errCount} entr${errCount === 1 ? 'y' : 'ies'} failed` : ''}`);
+      toast.show(errCount ? 'warn' : 'success', errCount ? 'Saved with issues' : 'Saved', `${res.created ?? 0} new · ${res.updated ?? 0} updated · ${res.unchanged ?? 0} unchanged${errCount ? `\n${errCount} entr${errCount === 1 ? 'y' : 'ies'} failed` : ''}`);
       setLastMarked({ at: new Date().toISOString(), by: user?.name });
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
