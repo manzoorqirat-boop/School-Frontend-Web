@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, roleTheme, moduleColor } from '@/theme';
 import { Screen, Loading, EmptyState } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 type Cfg = { roles: string[]; isCustomized: boolean; default?: string[] };
 
@@ -30,7 +31,7 @@ export default function Privileges() {
       setMatrix(data.matrix ?? {});
       setRoles(data.availableRoles ?? []);
       setPrivileges(data.privileges ?? Object.keys(data.matrix ?? {}));
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -47,29 +48,37 @@ export default function Privileges() {
     try {
       await API.put(`/api/privileges/${encodeURIComponent(priv)}`, { roles: nextRoles });
     } catch (e: any) {
-      Alert.alert('Save failed', e.message);
+      toast.error('Save failed', e.message);
       setMatrix(prev => ({ ...prev, [priv]: cur }));  // revert only this row
     } finally { setSavingKey(null); }
   }
 
   async function resetRole(role: string) {
-    Alert.alert('Reset role', `Reset all "${roleTheme[role]?.label ?? role}" privileges to defaults?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: async () => {
-        try { const r = await API.post(`/api/privileges/role/${encodeURIComponent(role)}/reset`); Alert.alert('Done', `Reset ${r.privilegesTouched} privileges.`); load(); }
-        catch (e: any) { Alert.alert('Error', e.message); }
-      }},
-    ]);
+    const ok = await confirm({
+      title: 'Reset role',
+      message: `Reset all "${roleTheme[role]?.label ?? role}" privileges to defaults?`,
+      confirmLabel: 'Reset', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const r = await API.post(`/api/privileges/role/${encodeURIComponent(role)}/reset`);
+      toast.success('Role reset', `Reset ${r.privilegesTouched} privileges.`);
+      load();
+    } catch (e: any) { toast.error('Error', e.message); }
   }
 
   async function resetAll() {
-    Alert.alert('Reset all', 'Reset the entire privilege matrix to defaults?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset All', style: 'destructive', onPress: async () => {
-        try { await API.post('/api/privileges/reset-all'); Alert.alert('Done', 'Matrix reset.'); load(); }
-        catch (e: any) { Alert.alert('Error', e.message); }
-      }},
-    ]);
+    const ok = await confirm({
+      title: 'Reset all',
+      message: 'Reset the entire privilege matrix to defaults?',
+      confirmLabel: 'Reset All', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await API.post('/api/privileges/reset-all');
+      toast.success('Matrix reset', 'All roles are back to default privileges.');
+      load();
+    } catch (e: any) { toast.error('Error', e.message); }
   }
 
   if (loading) return <Screen title={t('nav.privileges', 'Privileges')} colors={rt.gradient} onBack={() => router.back()}><Loading /></Screen>;
