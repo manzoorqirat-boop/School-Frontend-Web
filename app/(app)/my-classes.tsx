@@ -8,7 +8,7 @@ import { useSchoolConfig } from '@/lib/schoolConfig';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 const ADMINISH = ['school_admin', 'principal', 'superadmin'];
 
