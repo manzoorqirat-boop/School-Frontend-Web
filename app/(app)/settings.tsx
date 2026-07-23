@@ -8,7 +8,7 @@ import { can } from '@/lib/privileges';
 import { colors, spacing, font, radius, themeForRole, roleTheme } from '@/theme';
 import { Screen, Field, FormModal, Avatar } from '@/components/screen';
 import { useI18n } from '@/i18n';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 
 function passwordError(pw?: string): string | null {
