@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { can } from '@/lib/privileges';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, Field, Collapsible, Loading, EmptyState, AcademicYearPicker, FormModal } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -42,7 +43,7 @@ export default function SchoolSetup() {
         setLeaveTypes(lt.types ?? []);
         setRequireApproval(lt.requireApproval !== false);
       } catch { /* payroll may be out of scope for this role */ }
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }
 
@@ -53,7 +54,7 @@ export default function SchoolSetup() {
     const v = value.trim();
     if (!v) return;
     const cur = form[key] ?? [];
-    if (cur.some((x: string) => x.toLowerCase() === v.toLowerCase())) { Alert.alert('Duplicate', `"${v}" is already in the list.`); return; }
+    if (cur.some((x: string) => x.toLowerCase() === v.toLowerCase())) { toast.error('Duplicate', `"${v}" is already in the list.`); return; }
     set(key, [...cur, v]);
   }
   function removeItem(key: 'classes' | 'sections', i: number) {
@@ -72,11 +73,11 @@ export default function SchoolSetup() {
   }
 
   async function save() {
-    if (!form?.classes?.length) { Alert.alert('Missing', 'Add at least one class — the class pickers across the app depend on this.'); return; }
-    if (!form?.sections?.length) { Alert.alert('Missing', 'Add at least one section.'); return; }
+    if (!form?.classes?.length) { toast.error('Missing', 'Add at least one class — the class pickers across the app depend on this.'); return; }
+    if (!form?.sections?.length) { toast.error('Missing', 'Add at least one section.'); return; }
     const day = parseInt(form.feeBillingDay); const rem = parseInt(form.feeReminderDay);
-    if (form.feeBillingDay && (isNaN(day) || day < 1 || day > 28)) { Alert.alert('Invalid', 'Fee billing day must be between 1 and 28.'); return; }
-    if (form.feeReminderDay && (isNaN(rem) || rem < 1 || rem > 28)) { Alert.alert('Invalid', 'Fee reminder day must be between 1 and 28.'); return; }
+    if (form.feeBillingDay && (isNaN(day) || day < 1 || day > 28)) { toast.error('Invalid', 'Fee billing day must be between 1 and 28.'); return; }
+    if (form.feeReminderDay && (isNaN(rem) || rem < 1 || rem > 28)) { toast.error('Invalid', 'Fee reminder day must be between 1 and 28.'); return; }
 
     setSaving(true);
     try {
@@ -86,7 +87,7 @@ export default function SchoolSetup() {
       // the request 404s with no indication of why.
       const schoolId = form?._id ?? school?._id;
       if (!schoolId) {
-        Alert.alert('Error', 'School not loaded yet. Please reload the page and try again.');
+        toast.error('Error', 'School not loaded yet. Please reload the page and try again.');
         return;
       }
 
@@ -97,8 +98,8 @@ export default function SchoolSetup() {
       });
       setForm({ ...updated, classes: [...(updated.classes ?? [])], sections: [...(updated.sections ?? [])], workingDays: [...(updated.workingDays ?? [])] });
       await refreshSchool();
-      Alert.alert('Saved', 'School setup updated. Class and section pickers across the app now use these lists.');
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+      toast.success('Saved', 'School setup updated. Class and section pickers across the app now use these lists.');
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -117,14 +118,14 @@ export default function SchoolSetup() {
         color: t.color || undefined,
         description: t.description || undefined,
       }));
-    if (!types.length) { Alert.alert('Missing', 'Add at least one leave type.'); return; }
+    if (!types.length) { toast.error('Missing', 'Add at least one leave type.'); return; }
     setSaving(true);
     try {
       await API.put('/api/payroll/leave-types', { types, requireApproval });
       const lt = await API.get('/api/payroll/leave-types');
       setLeaveTypes(lt.types ?? []);
       setLtOpen(false);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
