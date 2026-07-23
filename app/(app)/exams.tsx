@@ -9,7 +9,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, FormModal, Field, ChipPicker, DateField } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 const TYPES = ['unit_test', 'periodic', 'term', 'half_yearly', 'annual', 'custom'];
 const STATUS_TINT: Record<string, string> = { draft: colors.muted, published: colors.success };
