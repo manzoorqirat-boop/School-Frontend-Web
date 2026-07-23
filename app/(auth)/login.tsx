@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
-  ScrollView, TouchableOpacity, Alert, ActivityIndicator,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
+import { toast } from '@/components/toast';
 import { colors, radius, spacing, font } from '@/theme';
 
 export default function Login() {
@@ -19,10 +17,10 @@ export default function Login() {
   const [focus, setFocus] = useState<string>('');
 
   async function submit() {
-    if (!username || !password) { Alert.alert('Missing details', 'Enter your username and password.'); return; }
+    if (!username || !password) { toast.error('Missing details', 'Enter your username and password.'); return; }
     setLoading(true);
     try { await signIn(slug || undefined, username, password); }
-    catch (e: any) { Alert.alert('Login failed', e.message ?? 'Please try again.'); }
+    catch (e: any) { toast.error('Login failed', e.message ?? 'Please try again.'); }
     finally { setLoading(false); }
   }
 
