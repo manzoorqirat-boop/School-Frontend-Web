@@ -151,7 +151,16 @@ export default function Timetable() {
     const kept = (entries ?? []).filter(e => !targetNums.includes(e.dayOfWeek));
     const copies: Entry[] = [];
     for (const tn of targetNums) {
-      for (const e of dayEntries) copies.push({ ...e, dayOfWeek: tn });
+      for (const e of dayEntries) {
+        // Strip the server-assigned identity. A plain { ...e } spread carries
+        // the source row's _id into every copy, so the POST body ends up with
+        // the same primary key repeated across Tue/Wed/Thu. The server marks
+        // the old rows Deleted and the new ones Added in one SaveChanges, and
+        // EF rejects the same key being tracked twice — a 500 on save.
+        // These are new rows; let the database assign their ids.
+        const { _id, id, ...rest } = e as any;
+        copies.push({ ...rest, dayOfWeek: tn } as Entry);
+      }
     }
     setEntries([...kept, ...copies]);
     setDirty(true);
