@@ -61,6 +61,7 @@ export default function Dashboard() {
     { key: 'marks', label: t('nav.marks', 'Marks Entry'), icon: 'create-outline', route: '/(app)/marks', show: r === 'teacher' },
     { key: 'my-classes', label: t('nav.myClasses', 'My Classes'), icon: 'easel-outline', route: '/(app)/my-classes', show: r === 'teacher' },
     { key: 'exams', label: t('nav.exams', 'Exams'), icon: 'document-text-outline', route: '/(app)/exams', show: true },
+    { key: 'exam-config', label: t('nav.examConfig', 'Exam Config'), icon: 'options-outline', route: '/(app)/exam-config', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
     { key: 'fees', label: t('nav.fees', 'Fees'), icon: 'wallet-outline', route: '/(app)/fees', show: can('fees') },
     { key: 'fee-structures', label: t('nav.feeStructures', 'Fee Structures'), icon: 'pricetags-outline', route: '/(app)/fee-structures', show: can('fees') },
     { key: 'reports', label: t('nav.reports', 'Reports'), icon: 'stats-chart-outline', route: '/(app)/reports', show: ['superadmin', 'school_admin', 'principal', 'accountant', 'teacher'].includes(r) },
