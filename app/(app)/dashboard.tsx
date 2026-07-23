@@ -58,7 +58,11 @@ export default function Dashboard() {
     { key: 'promote', label: t('nav.promote', 'Promote'), icon: 'trending-up-outline', route: '/(app)/promote', show: r === 'superadmin' || r === 'school_admin' || r === 'principal' },
     { key: 'attendance', label: t('nav.attendance', 'Attendance'), icon: 'checkbox-outline', route: '/(app)/attendance', show: true },
     { key: 'staff-attendance', label: t('nav.staffAttendance', 'Staff Attendance'), icon: 'briefcase-outline', route: '/(app)/teacher-attendance', show: r === 'superadmin' || r === 'school_admin' || r === 'principal' },
-    { key: 'marks', label: t('nav.marks', 'Marks Entry'), icon: 'create-outline', route: '/(app)/marks', show: r === 'teacher' },
+    // Marks entry was hardcoded to `r === 'teacher'`, so a school_admin,
+    // principal or superadmin had NO way to reach the results grid from the
+    // dashboard even though the API grants them 'exam:grade'. The exam and
+    // report-card flow is unusable for an admin-run school without this.
+    { key: 'marks', label: t('nav.marks', 'Marks Entry'), icon: 'create-outline', route: '/(app)/marks', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
     { key: 'my-classes', label: t('nav.myClasses', 'My Classes'), icon: 'easel-outline', route: '/(app)/my-classes', show: r === 'teacher' },
     { key: 'exams', label: t('nav.exams', 'Exams'), icon: 'document-text-outline', route: '/(app)/exams', show: true },
     { key: 'exam-config', label: t('nav.examConfig', 'Exam Config'), icon: 'options-outline', route: '/(app)/exam-config', show: ['superadmin', 'school_admin', 'principal', 'teacher'].includes(r) },
