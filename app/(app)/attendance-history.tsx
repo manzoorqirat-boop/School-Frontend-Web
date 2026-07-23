@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { API } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, font, radius, themeForRole } from '@/theme';
 import { Screen, EmptyState, Loading } from '@/components/screen';
 import { StatTile } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 const STATUS_TINT: Record<string, string> = {
   present: colors.emerald, absent: colors.danger, late: colors.amber, leave: colors.sky, holiday: colors.muted,
@@ -39,7 +40,7 @@ export default function AttendanceHistory() {
     if (!sid) { setLoading(false); return; }
     setLoading(true);
     try { setData(await API.get(`/api/attendance/student/${sid}`)); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(child); }, [child, load]);
