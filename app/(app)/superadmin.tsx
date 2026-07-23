@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
 import { API } from '@/lib/api';
@@ -7,6 +7,7 @@ import { themeForRole, colors, spacing, font, radius, moduleColor } from '@/them
 import { GradientHeader, StatTile, Card, Chip } from '@/components/ui';
 import { Field, ChipPicker, FormModal } from '@/components/screen';
 import { Ionicons } from '@expo/vector-icons';
+import { toast } from '@/components/toast';
 
 export default function Superadmin() {
   const { user, signOut } = useAuth();
@@ -29,35 +30,39 @@ export default function Superadmin() {
 
   async function createSchool() {
     if (!form.name || !form.slug || !form.adminUsername || !form.adminPassword) {
-      Alert.alert('Missing', 'School name, code, admin username and password are required.');
+      toast.error('Missing', 'School name, code, admin username and password are required.');
       return;
     }
     if (!/^[a-z0-9-]+$/.test(String(form.slug).toLowerCase())) {
-      Alert.alert('Invalid code', 'School code can only contain lowercase letters, numbers and hyphens (it becomes the login code).');
+      toast.error('Invalid code', 'School code can only contain lowercase letters, numbers and hyphens (it becomes the login code).');
       return;
     }
     const pw = form.adminPassword;
     const pwBad = pw.length < 8 || !/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/[0-9]/.test(pw) || /^[a-zA-Z0-9]*$/.test(pw);
-    if (pwBad) { Alert.alert('Weak password', 'Admin password needs 8+ chars with upper, lower, number & special character.'); return; }
+    if (pwBad) { toast.error('Weak password', 'Admin password needs 8+ chars with upper, lower, number & special character.'); return; }
     setSaving(true);
     try {
       const res = await API.post('/api/schools', form);
       setSchools(prev => [res.school, ...prev]);
       setFormOpen(false);
       setForm({ type: 'k12' });
-      Alert.alert('School created', `Admin login: ${res.admin?.username}`);
-    } catch (e: any) { Alert.alert('Create failed', e.message); }
+      toast.success('School created', `Admin login: ${res.admin?.username}`);
+    } catch (e: any) { toast.error('Create failed', e.message); }
     finally { setSaving(false); }
   }
 
-  function confirmDeactivate(sch: any) {
-    Alert.alert('Deactivate school', `Deactivate "${sch.name}"? Its users will no longer be able to log in.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Deactivate', style: 'destructive', onPress: async () => {
-        try { await API.del(`/api/schools/${sch._id}`); setSchools(prev => prev.map(x => x._id === sch._id ? { ...x, isActive: false } : x)); }
-        catch (e: any) { Alert.alert('Failed', e.message); }
-      }},
-    ]);
+  async function confirmDeactivate(sch: any) {
+    const ok = await confirm({
+      title: 'Deactivate school',
+      message: `Deactivate "${sch.name}"? Its users will no longer be able to log in.`,
+      confirmLabel: 'Deactivate', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await API.del(`/api/schools/${sch._id}`);
+      setSchools(prev => prev.map(x => x._id === sch._id ? { ...x, isActive: false } : x));
+      toast.success('School deactivated', `"${sch.name}" can no longer sign in.`);
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   return (
