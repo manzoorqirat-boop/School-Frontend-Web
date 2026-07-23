@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, Avatar, EmptyState, Loading, Field, FormModal, TimeField } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 // Staff statuses differ from students — half-day, on-duty, paid vs unpaid leave.
 const STATUSES = [
@@ -71,7 +72,7 @@ export default function TeacherAttendance() {
           };
       });
       setMarks(im); setNotes(ino);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, [date, school?.academicYear]);
 
@@ -111,10 +112,9 @@ export default function TeacherAttendance() {
         date, academicYear: academicYear || undefined, entries,
       });
       const errCount = (res.errors ?? []).length;
-      Alert.alert(errCount ? 'Saved with issues' : 'Saved',
-        `${res.created ?? 0} new · ${res.updated ?? 0} updated · ${res.unchanged ?? 0} unchanged${errCount ? `\n${errCount} failed` : ''}`);
+      toast.show(errCount ? 'warn' : 'success', errCount ? 'Saved with issues' : 'Saved', `${res.created ?? 0} new · ${res.updated ?? 0} updated · ${res.unchanged ?? 0} unchanged${errCount ? `\n${errCount} failed` : ''}`);
       setLastMarked({ at: new Date().toISOString(), by: user?.name });
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
