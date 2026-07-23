@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 const STATUS_TINT: Record<string, string> = { draft: colors.muted, active: colors.success, closed: colors.info };
 const ADMINISH = ['school_admin', 'principal', 'superadmin'];
