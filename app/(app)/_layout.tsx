@@ -1,45 +1,30 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from '@/lib/auth';
-import { I18nProvider } from '@/i18n';
-import { homeForRole } from '@/lib/api';
-import { View, ActivityIndicator } from 'react-native';
-import { colors } from '@/theme';
+import { Stack } from 'expo-router';
 
-// Route guard: redirects between (auth) and (app) based on session.
-function Guard() {
-  const { ready, user } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!ready) return;
-    const inAuth = segments[0] === '(auth)';
-    if (!user && !inAuth) router.replace('/(auth)/login');
-    else if (user && inAuth) router.replace(homeForRole(user.role) as any);
-  }, [ready, user, segments]);
-
-  if (!ready) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#fff" size="large" />
-      </View>
-    );
-  }
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
-}
-
-export default function RootLayout() {
-  return (
-    <SafeAreaProvider>
-      <I18nProvider>
-        <AuthProvider>
-          <StatusBar style="light" />
-          <Guard />
-        </AuthProvider>
-      </I18nProvider>
-    </SafeAreaProvider>
-  );
+// Layout for the (app) route group.
+//
+// This file used to be a VERBATIM COPY of the root layout — SafeAreaProvider +
+// I18nProvider + AuthProvider + its own Guard + its own full-screen spinner.
+// Because expo-router nests layouts, that mounted a SECOND AuthProvider inside
+// the first, and the two held completely independent state:
+//
+//   app/_layout.tsx        -> AuthProvider A -> Guard A -> <Stack>
+//     app/(app)/_layout.tsx -> AuthProvider B -> Guard B -> <Stack>
+//       app/(app)/settings.tsx
+//
+// useAuth() resolves to the NEAREST provider, so every screen in this group
+// talked to provider B while Guard A — the one that actually owns the
+// (auth)/(app) redirect — watched provider A.
+//
+// Signing out therefore cleared B's user but left A's untouched:
+//   * Guard A still saw a logged-in user, so it never routed to /login.
+//   * Guard B saw user=null and rendered ITS spinner, nested inside A's Stack
+//     which never unmounted.
+// The result was the permanent purple spinner after sign-out.
+//
+// A nested group layout must NOT re-create app-wide providers. Auth, i18n and
+// safe-area context all live once, at the root. This file only declares the
+// stack for the group — mirroring app/(auth)/_layout.tsx, which was always
+// correct.
+export default function AppLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
