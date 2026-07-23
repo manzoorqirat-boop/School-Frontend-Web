@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -8,6 +8,7 @@ import { useSchoolConfig } from '@/lib/schoolConfig';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const ADMINISH = ['school_admin', 'principal', 'superadmin'];
 
@@ -32,7 +33,7 @@ export default function MyClasses() {
     try {
       const data = await API.get(isAdmin ? '/api/class-teachers' : '/api/class-teachers/my-classes');
       setItems(data.items ?? []);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, [isAdmin]);
   useEffect(() => { load(); }, [load]);
@@ -46,7 +47,7 @@ export default function MyClasses() {
   }
 
   async function save() {
-    if (!form.teacherUserId) { Alert.alert('Missing', 'Select a teacher.'); return; }
+    if (!form.teacherUserId) { toast.error('Missing', 'Select a teacher.'); return; }
     setSaving(true);
     try {
       const created = await API.post('/api/class-teachers', {
@@ -55,18 +56,23 @@ export default function MyClasses() {
       });
       setItems(prev => [created, ...prev]);
       setFormOpen(false);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+      toast.success('Class teacher assigned', `${form.class}-${form.section}`);
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
-  function confirmDelete(a: any) {
-    Alert.alert('Remove assignment', `Remove this assignment? The teacher will lose attendance-marking rights for ${a.class}-${a.section}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: async () => {
-        try { await API.del(`/api/class-teachers/${a._id}`); setItems(prev => prev.filter(x => x._id !== a._id)); }
-        catch (e: any) { Alert.alert('Failed', e.message); }
-      }},
-    ]);
+  async function confirmDelete(a: any) {
+    const ok = await confirm({
+      title: 'Remove assignment',
+      message: `Remove this assignment? The teacher will lose attendance-marking rights for ${a.class}-${a.section}.`,
+      confirmLabel: 'Remove', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await API.del(`/api/class-teachers/${a._id}`);
+      setItems(prev => prev.filter(x => x._id !== a._id));
+      toast.success('Assignment removed', `${a.class}-${a.section} is no longer assigned.`);
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   const teacherName = (a: any) => a.teacherName ?? teachers.find(x => x._id === a.teacherUserId)?.name ?? '';
