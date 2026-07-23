@@ -8,7 +8,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, roleLabel, moduleColor } from '@/theme';
 import { Screen, SearchBar, ListItem, Avatar, EmptyState, Loading, Field, ChipPicker, FormModal } from '@/components/screen';
-import { toast } from '@/components/toast';
+import { toast, confirm } from '@/components/toast';
 
 const ROLES = ['school_admin', 'principal', 'accountant', 'teacher', 'parent', 'student'];
 
