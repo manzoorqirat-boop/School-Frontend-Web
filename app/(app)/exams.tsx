@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -9,6 +9,7 @@ import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ListItem, EmptyState, Loading, FormModal, Field, ChipPicker, DateField } from '@/components/screen';
+import { toast } from '@/components/toast';
 
 const TYPES = ['unit_test', 'periodic', 'term', 'half_yearly', 'annual', 'custom'];
 const STATUS_TINT: Record<string, string> = { draft: colors.muted, published: colors.success };
@@ -35,7 +36,7 @@ export default function Exams() {
 
   const load = useCallback(async () => {
     try { const data = await API.get('/api/exams'); setExams(data.items ?? []); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -51,16 +52,21 @@ export default function Exams() {
       const updated = await API.post(`/api/exams/${exam._id}/${publish ? 'publish' : 'unpublish'}`);
       setExams(prev => prev.map(x => x._id === exam._id ? updated : x));
       setView(null);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
-  function confirmDelete(exam: any) {
-    Alert.alert('Delete exam', `Delete "${exam.name}" and all its results? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await API.del(`/api/exams/${exam._id}`); setExams(prev => prev.filter(x => x._id !== exam._id)); setView(null); }
-        catch (e: any) { Alert.alert('Failed', e.message); }
-      }},
-    ]);
+  async function confirmDelete(exam: any) {
+    const ok = await confirm({
+      title: 'Delete exam',
+      message: `Delete "${exam.name}" and all its results? This cannot be undone.`,
+      confirmLabel: 'Delete', destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await API.del(`/api/exams/${exam._id}`);
+      setExams(prev => prev.filter(x => x._id !== exam._id));
+      setView(null);
+      toast.success('Exam deleted', `"${exam.name}" and its results were removed.`);
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   // ── Create / edit ───────────────────────────────────────────────────────
@@ -100,9 +106,9 @@ export default function Exams() {
   const badDate = (v?: string) => v && !/^\d{4}-\d{2}-\d{2}$/.test(v);
 
   async function save() {
-    if (!form.name?.trim()) { Alert.alert('Missing', 'Exam name is required.'); return; }
-    if (badDate(form.fromDate) || badDate(form.toDate)) { Alert.alert('Invalid date', 'Dates must be YYYY-MM-DD.'); return; }
-    if (form.fromDate && form.toDate && form.fromDate > form.toDate) { Alert.alert('Invalid', 'From date must be before To date.'); return; }
+    if (!form.name?.trim()) { toast.error('Missing', 'Exam name is required.'); return; }
+    if (badDate(form.fromDate) || badDate(form.toDate)) { toast.error('Invalid date', 'Dates must be YYYY-MM-DD.'); return; }
+    if (form.fromDate && form.toDate && form.fromDate > form.toDate) { toast.error('Invalid', 'From date must be before To date.'); return; }
 
     setSaving(true);
     try {
@@ -124,7 +130,7 @@ export default function Exams() {
           subjectId: s._id, subjectName: s.name,
           maxMarks: parseFloat(chosen[s._id].maxMarks) || 100,
         }));
-        if (!subs.length) { Alert.alert('Missing', 'Select at least one subject.'); setSaving(false); return; }
+        if (!subs.length) { toast.error('Missing', 'Select at least one subject.'); setSaving(false); return; }
         const created = await API.post('/api/exams', {
           name: form.name.trim(), type: form.type, class: form.class, section: form.section || null,
           fromDate: d(form.fromDate), toDate: d(form.toDate), notes: form.notes, subjects: subs,
@@ -133,7 +139,8 @@ export default function Exams() {
         setExams(prev => [created, ...prev]);
       }
       setFormOpen(false);
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+      toast.success(editing ? 'Exam updated' : 'Exam created', form.name?.trim());
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
