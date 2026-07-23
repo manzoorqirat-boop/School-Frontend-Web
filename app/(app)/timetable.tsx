@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ChipPicker, EmptyState, Loading, Field, FormModal, DateField, TimeField, AcademicYearPicker } from '@/components/screen';
 import { GradientButton, Card } from '@/components/ui';
+import { toast } from '@/components/toast';
 
 // Backend contract: 0=Sun..6=Sat, so Mon=1..Sat=6.
 const DAY_NUM: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -50,7 +51,7 @@ export default function Timetable() {
       const row = (data.items ?? [])[0];
       setTt(row ?? null);
       setEntries(row?.entries ?? []);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }, [cls, sec]);
 
@@ -69,7 +70,7 @@ export default function Timetable() {
     setCreateOpen(true);
   }
   async function createTimetable() {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(createForm.fromDate ?? '')) { Alert.alert('Invalid', 'From date must be YYYY-MM-DD.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(createForm.fromDate ?? '')) { toast.error('Invalid', 'From date must be YYYY-MM-DD.'); return; }
     setSaving(true);
     try {
       const created = await API.post('/api/timetables', {
@@ -79,7 +80,7 @@ export default function Timetable() {
       });
       setTt(created); setEntries(created.entries ?? []);
       setCreateOpen(false);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+    } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -92,10 +93,10 @@ export default function Timetable() {
   }
 
   function addEntry() {
-    if (!entryForm.subjectName?.trim()) { Alert.alert('Missing', 'Subject is required.'); return; }
-    if (!entryForm.teacherId) { Alert.alert('Missing', 'Select a teacher — the backend requires one for every period.'); return; }
+    if (!entryForm.subjectName?.trim()) { toast.error('Missing', 'Subject is required.'); return; }
+    if (!entryForm.teacherId) { toast.error('Missing', 'Select a teacher — the backend requires one for every period.'); return; }
     const t2 = (v?: string) => v && !/^\d{2}:\d{2}$/.test(v) ? true : false;
-    if (t2(entryForm.startTime) || t2(entryForm.endTime)) { Alert.alert('Invalid time', 'Times must be HH:MM (e.g. 09:00).'); return; }
+    if (t2(entryForm.startTime) || t2(entryForm.endTime)) { toast.error('Invalid time', 'Times must be HH:MM (e.g. 09:00).'); return; }
     const e: Entry = {
       dayOfWeek: DAY_NUM[day], slotNumber: parseInt(entryForm.slotNumber) || (dayEntries.length + 1),
       subjectName: entryForm.subjectName.trim(),
@@ -117,8 +118,8 @@ export default function Timetable() {
     try {
       const updated = await API.post(`/api/timetables/${tt._id}/entries`, { entries });
       setTt(updated); setEntries(updated.entries ?? entries);
-      Alert.alert('Saved', 'Timetable updated.');
-    } catch (e: any) { Alert.alert('Save failed', e.message); }
+      toast.success('Saved', 'Timetable updated.');
+    } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
@@ -126,8 +127,8 @@ export default function Timetable() {
     try {
       const updated = await API.post(`/api/timetables/${tt._id}/publish`);
       setTt(updated);
-      Alert.alert('Published', 'This timetable is now active for students & parents.');
-    } catch (e: any) { Alert.alert('Failed', e.message); }
+      toast.success('Published', 'This timetable is now active for students & parents.');
+    } catch (e: any) { toast.error('Failed', e.message); }
   }
 
   const selTeacher = teachers.find(x => x._id === entryForm.teacherId);
