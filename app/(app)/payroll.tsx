@@ -232,7 +232,16 @@ export default function Payroll() {
       {/* Generate payslip */}
       <FormModal visible={genOpen} title="Generate payslip" onClose={() => setGenOpen(false)}
         onSubmit={generate} submitting={saving} submitLabel="Generate">
-        <Text style={styles.hint}>Requires an active salary structure for the teacher (set up in web admin).</Text>
+        {/* Was "set up in web admin" — a screen that existed in neither app.
+            It exists now, so link to it. */}
+        <TouchableOpacity onPress={() => { setGenOpen(false); router.push('/(app)/salary-structures'); }}
+          style={styles.hintLink}>
+          <Ionicons name="information-circle" size={15} color={colors.info} />
+          <Text style={styles.hintLinkText}>
+            Requires an active salary structure. Tap to manage them.
+          </Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.info} />
+        </TouchableOpacity>
         <TeacherPick teachers={teachers} value={genForm.teacherId} onPick={(id: string) => setGenForm({ ...genForm, teacherId: id })} />
         <ChipPicker label="Month" options={MONTHS.map((_, i) => String(i + 1))} value={genForm.month} onChange={(v) => setGenForm({ ...genForm, month: v })} />
         <Field label="Year" value={genForm.year} keyboardType="numeric" onChangeText={(v: string) => setGenForm({ ...genForm, year: v })} />
@@ -310,5 +319,8 @@ const styles = StyleSheet.create({
   pickLabel: { ...font.label, color: colors.slate },
   teachRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
   teachName: { ...font.body, color: colors.ink },
+  hintLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 10,
+    backgroundColor: colors.info + '14', borderRadius: radius.md, marginTop: spacing.sm, minHeight: 44 },
+  hintLinkText: { ...font.caption, color: colors.info, flex: 1, textTransform: 'none', letterSpacing: 0, lineHeight: 16 },
   hint: { ...font.label, color: colors.muted, fontStyle: 'italic' },
 });
