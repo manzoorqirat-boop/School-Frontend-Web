@@ -57,6 +57,10 @@ export default function Promote() {
   const [building, setBuilding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editRow, setEditRow] = useState<Row | null>(null);
+  // A built plan can be rebuilt, but per-row edits (changed target class,
+  // graduate flag) exist only in `rows`. Changing the year pickers threw them
+  // away silently.
+  const [planEdited, setPlanEdited] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isTerminal = (cls: string) => {
@@ -67,7 +71,7 @@ export default function Promote() {
   const build = useCallback(async () => {
     if (!fromAY || !toAY) { toast.error('Missing', 'Choose both academic years.'); return; }
     if (fromAY === toAY) { toast.error('Invalid', 'From and To academic years must differ.'); return; }
-    setBuilding(true); setRows(null);
+    setBuilding(true); setRows(null); setPlanEdited(false);
     try {
       const resp = await API.get('/api/students?limit=5000');
       const students: any[] = Array.isArray(resp) ? resp : resp.items || [];
@@ -134,7 +138,7 @@ export default function Promote() {
         fromAcademicYear: fromAY, toAcademicYear: toAY, promotions, graduatingClasses,
       });
       setConfirmOpen(false);
-      setRows(null);
+      setRows(null); setPlanEdited(false);
       toast.success('Promotion complete', `${res.totalPromoted ?? 0} student(s) moved from ${fromAY} to ${toAY}.`);
     } catch (e: any) { toast.error('Promotion failed', e.message); }
     finally { setSaving(false); }
@@ -150,8 +154,8 @@ export default function Promote() {
     <Screen title="Year-End Promotion" subtitle="Move students to the next class" colors={rt.gradient} onBack={() => router.back()} scroll={false}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
         <View style={styles.ayCard}>
-          <ChipPicker label="From academic year" options={ays} value={fromAY} onChange={(v) => { setFromAY(v); setRows(null); }} />
-          <ChipPicker label="To academic year" options={ays} value={toAY} onChange={(v) => { setToAY(v); setRows(null); }} />
+          <ChipPicker label="From academic year" options={ays} value={fromAY} onChange={(v) => { if (planEdited) { toast.error('Unsaved plan edits', 'Your manual changes will be lost. Rebuild the plan to start over.'); return; } setFromAY(v); setRows(null); }} />
+          <ChipPicker label="To academic year" options={ays} value={toAY} onChange={(v) => { if (planEdited) { toast.error('Unsaved plan edits', 'Your manual changes will be lost. Rebuild the plan to start over.'); return; } setToAY(v); setRows(null); }} />
           <GradientButton label={rows ? 'Rebuild plan' : 'Build promotion plan'} onPress={build} loading={building} colors={rt.gradient} />
           <Text style={styles.hint}>Loads active students in the from-year, grouped by class &amp; section, and proposes next-class moves. Nothing changes until you confirm.</Text>
         </View>
@@ -200,7 +204,7 @@ export default function Promote() {
       {/* Per-row editor */}
       <FormModal visible={!!editRow} title={editRow ? `${editRow.fromClass}-${editRow.fromSection} (${editRow.count} students)` : ''}
         onClose={() => setEditRow(null)}
-        onSubmit={() => { setRows(prev => (prev ?? []).map(r => r.id === editRow!.id ? editRow! : r)); setEditRow(null); }}
+        onSubmit={() => { setRows(prev => (prev ?? []).map(r => r.id === editRow!.id ? editRow! : r)); setPlanEdited(true); setEditRow(null); }}
         submitLabel="Apply">
         {editRow && (
           <>
