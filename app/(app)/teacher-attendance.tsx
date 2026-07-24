@@ -50,7 +50,20 @@ export default function TeacherAttendance() {
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() + days);
     if (iso(d) > today()) return;              // no future marking
-    setDate(iso(d)); setRoster(null);
+    if (!resetRoster()) return;
+    setDate(iso(d));
+  }
+
+  // Every path that discards the roster goes through here. Marks live in local
+  // state until Save, so switching class/section/date/mode silently threw away
+  // a whole class's attendance with no warning.
+  function resetRoster(): boolean {
+    if (roster && Object.keys(marks).length > 0) {
+      toast.error('Unsaved attendance', 'Save your marks first, or reload to discard them.');
+      return false;
+    }
+    setRoster(null);
+    return true;
   }
 
   const loadRoster = useCallback(async () => {
