@@ -26,6 +26,8 @@ export default function Polls() {
   const [active, setActive] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [results, setResults] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -40,7 +42,25 @@ export default function Polls() {
   useEffect(() => { load(); }, [load]);
 
   // ── Vote ────────────────────────────────────────────────────────────────
-  function openPoll(p: any) { setActive(p); setAnswers({}); setResults(null); }
+  // The list only carries summary fields. Fetch the detail so we know whether
+  // THIS user has voted, what they picked, and whether they may see results —
+  // none of which the list can tell us. Previously the modal opened straight
+  // from list data, so an already-voted parent was shown a blank ballot and
+  // only discovered the duplicate when the server rejected the submit.
+  async function openPoll(p: any) {
+    setActive(p); setAnswers({}); setResults(null); setDetail(null);
+    setDetailLoading(true);
+    try {
+      const d = await API.get<any>(`/api/polls/${p._id}`);
+      setDetail(d);
+      if (d?.results) setResults(d.results);
+      // Pre-select what they chose last time so the ballot reflects reality.
+      const prior: Record<string, string> = {};
+      (d?.myVote?.answers ?? []).forEach((a: any) => { prior[a.questionId] = a.optionId; });
+      if (Object.keys(prior).length) setAnswers(prior);
+    } catch (e: any) { toast.error('Could not open poll', e.message); }
+    finally { setDetailLoading(false); }
+  }
 
   async function vote() {
     const payload = (active.questions ?? [])
@@ -51,13 +71,24 @@ export default function Polls() {
     try {
       await API.post(`/api/polls/${active._id}/vote`, { answers: payload });
       toast.success('Thanks!', 'Your vote has been recorded.');
-      loadResults(active);
+      // Re-read: this is what flips hasVoted and refreshes the tallies.
+      const d = await API.get<any>(`/api/polls/${active._id}`).catch(() => null);
+      if (d) { setDetail(d); if (d.results) setResults(d.results); }
+      load();   // refresh the list so the "Voted" badge appears
     } catch (e: any) { toast.error(e.message?.includes('already') ? 'Already voted' : 'Failed', e.message); }
     finally { setSaving(false); }
   }
 
   async function loadResults(p: any) {
-    try { const r = await API.get(`/api/polls/${p._id}/results`); setResults(r); } catch {}
+    try {
+      // The detail endpoint applies the visibility rule (admin, or the poll
+      // allows it, or it is closed). /results has no such gate, so reading it
+      // directly would leak live tallies on a poll set to hide them.
+      const d = await API.get<any>(`/api/polls/${p._id}`);
+      setDetail(d);
+      if (d?.results) setResults(d.results);
+      else toast.error('Results not available', 'This poll hides its results until it closes.');
+    } catch (e: any) { toast.error('Could not load results', e.message); }
   }
 
   // ── Manage ──────────────────────────────────────────────────────────────
@@ -124,7 +155,9 @@ export default function Polls() {
         renderItem={({ item: p }) => (
           <ListItem
             title={p.title}
-            subtitle={`${(p.questions ?? []).length} question(s) · for ${(p.targetRoles ?? []).join(', ') || 'everyone'}`}
+            subtitle={`${(p.questions ?? []).length} question(s) \u00b7 for ${(p.targetRoles ?? []).join(', ') || 'everyone'}`
+              + (p.hasVoted ? '  \u00b7  \u2713 you voted' : '')
+              + (p.totalVotes ? `  \u00b7  ${p.totalVotes} response(s)` : '')}
             badge={p.status ?? 'active'} badgeTint={STATUS_TINT[p.status ?? 'active']}
             onPress={() => openPoll(p)}
           />
@@ -133,10 +166,13 @@ export default function Polls() {
 
       {/* Vote / results / manage */}
       <FormModal visible={!!active} title={active?.title ?? ''} onClose={() => setActive(null)}
-        onSubmit={results || active?.status === 'closed' ? () => setActive(null) : vote}
+        onSubmit={results || detail?.hasVoted || active?.status === 'closed' ? () => setActive(null) : vote}
         submitting={saving}
-        submitLabel={results || active?.status === 'closed' ? 'Close' : 'Submit vote'}>
-        {active && !results && active.status !== 'closed' && (
+        submitLabel={results || detail?.hasVoted || active?.status === 'closed' ? 'Close' : 'Submit vote'}>
+        {/* Only show the ballot to someone who has not voted. Previously an
+            already-voted user got a blank ballot and found out only when the
+            server rejected the submit with a 409. */}
+        {active && !results && !detail?.hasVoted && active.status !== 'closed' && (
           <>
             {active.description ? <Text style={styles.desc}>{active.description}</Text> : null}
             {(active.questions ?? []).map((q: any) => (
@@ -161,26 +197,48 @@ export default function Polls() {
           </>
         )}
 
+        {active && detail?.hasVoted && !results && (
+          <Text style={styles.desc}>
+            You have already responded to this poll.
+            {detail?.canSeeResults === false ? ' Results are hidden until it closes.' : ''}
+          </Text>
+        )}
+
         {active && (results || active.status === 'closed') && (
           <>
             {!results && <TouchableOpacity onPress={() => loadResults(active)}><Text style={styles.link}>Load results</Text></TouchableOpacity>}
-            {(results?.questions ?? []).map((q: any) => {
-              const total = (q.options ?? []).reduce((a: number, o: any) => a + (o.votes ?? 0), 0);
+            {/* `results` is a nested map: results[questionId][optionId] = count,
+                zero-filled server-side so an option nobody picked reads 0
+                rather than being absent. Walk the POLL's questions for the
+                labels — the tally map carries ids only. The previous code
+                expected results.questions[].options[].votes, a shape no
+                endpoint ever returned, so this panel was always empty. */}
+            {((detail?.poll?.questions ?? active.questions) ?? []).map((q: any) => {
+              const tally = results?.[q._id] ?? {};
+              const total = (q.options ?? []).reduce((a: number, o: any) => a + (tally[o._id] ?? 0), 0);
+              const mine = detail?.myVote?.answers?.find((a: any) => a.questionId === q._id)?.optionId;
               return (
-                <View key={q.questionId ?? q._id} style={{ marginBottom: spacing.md }}>
+                <View key={q._id} style={{ marginBottom: spacing.md }}>
                   <Text style={styles.qText}>{q.text}</Text>
                   {(q.options ?? []).map((o: any) => {
-                    const pct = total ? Math.round(((o.votes ?? 0) / total) * 100) : 0;
+                    const votes = tally[o._id] ?? 0;
+                    const pct = total ? Math.round((votes / total) * 100) : 0;
+                    const isMine = mine === o._id;
                     return (
-                      <View key={o.optionId ?? o._id} style={{ marginBottom: 6 }}>
+                      <View key={o._id} style={{ marginBottom: 6 }}>
                         <View style={styles.resRow}>
-                          <Text style={styles.optText}>{o.text}</Text>
-                          <Text style={styles.resPct}>{pct}% ({o.votes ?? 0})</Text>
+                          <Text style={[styles.optText, isMine && { fontWeight: '800', color: rt.accent }]}>
+                            {o.text}{isMine ? '  \u2713' : ''}
+                          </Text>
+                          <Text style={styles.resPct}>{pct}% ({votes})</Text>
                         </View>
-                        <View style={styles.barTrack}><View style={[styles.barFill, { width: `${pct}%` as any, backgroundColor: rt.accent }]} /></View>
+                        <View style={styles.barTrack}>
+                          <View style={[styles.barFill, { width: `${pct}%` as any, backgroundColor: isMine ? rt.accent : colors.line }]} />
+                        </View>
                       </View>
                     );
                   })}
+                  <Text style={styles.totalLine}>{total} response(s)</Text>
                 </View>
               );
             })}
@@ -254,6 +312,7 @@ const styles = StyleSheet.create({
   optRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
   optText: { ...font.body, color: colors.ink, flex: 1 },
   link: { ...font.label, color: colors.primary, fontWeight: '600', paddingVertical: 6 },
+  totalLine: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 2 },
   resRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   resPct: { ...font.label, color: colors.slate, fontWeight: '700' },
   barTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceAlt, overflow: 'hidden' },
