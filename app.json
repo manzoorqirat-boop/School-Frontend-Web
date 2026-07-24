@@ -24,7 +24,7 @@
       "expo-font"
     ],
     "extra": {
-      "apiBase": "https://schoolnet-production-ac7d.up.railway.app"
+      "apiBase": "https://schoolnet-production-fedc.up.railway.app"
     },
     "owner": "schooldotnet",
     "web": {
