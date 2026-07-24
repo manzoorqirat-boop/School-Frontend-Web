@@ -32,6 +32,11 @@ export default function Marks() {
   }, []);
   useEffect(() => { loadExams(); }, [loadExams]);
 
+  // Marks live in local state until Save POSTs them. Leaving the grid — via
+  // back, or by picking another subject — refetches and silently discards
+  // everything typed. Track it and warn.
+  const [dirty, setDirty] = useState(false);
+
   async function pickExam(e: any) {
     setExam(e); setSubject(null); setStep('subject');
   }
@@ -53,15 +58,18 @@ export default function Marks() {
         };
       });
       setGrid(rows);
+      setDirty(false);
       setStep('grid');
     } catch (e: any) { toast.error('Error', e.message); }
     finally { setLoading(false); }
   }
 
   function setMark(id: string, val: string) {
+    setDirty(true);
     setGrid(prev => prev.map(r => r.studentId === id ? { ...r, marks: val, status: 'present' } : r));
   }
   function toggleAbsent(id: string) {
+    setDirty(true);
     setGrid(prev => prev.map(r => r.studentId === id
       ? { ...r, status: r.status === 'absent' ? 'present' : 'absent', marks: r.status === 'absent' ? r.marks : '' }
       : r));
@@ -83,12 +91,17 @@ export default function Marks() {
       }));
       const res = await API.post(`/api/exams/${exam._id}/marksheet/save`, { cells });
       toast.success('Saved', `${res.saved} marks recorded.`);
+      setDirty(false);
       setStep('subject');
     } catch (e: any) { toast.error('Save failed', e.message); }
     finally { setSaving(false); }
   }
 
   const goBack = () => {
+    if (step === 'grid' && dirty) {
+      toast.error('Unsaved marks', 'Save or clear your changes before leaving this subject.');
+      return;
+    }
     if (step === 'grid') setStep('subject');
     else if (step === 'subject') setStep('exam');
     else router.back();
