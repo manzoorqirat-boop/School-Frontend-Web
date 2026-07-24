@@ -87,15 +87,33 @@ export function GradientButton({
   // gradient stop, which is the same brand colour.
   const isWeb = Platform.OS === 'web';
 
+  // Separately: `themeForRole().gradient` is a back-compat shim returning
+  // [surface, surface] — white on white. It keeps the flat headers working,
+  // but screens pass it into this button too, giving a WHITE button with WHITE
+  // text: an empty rectangle where "Load Roster" / "Save Attendance" belongs.
+  // Ten buttons across six screens were affected on BOTH platforms (the web
+  // path uses g[0], which is the same white).
+  //
+  // Fixed here rather than at ten call sites: an invisible button is never
+  // what the caller intended, so fall back to the brand colours when the
+  // supplied gradient has no contrast against the page.
+  const invisible =
+    g[0]?.toLowerCase() === g[1]?.toLowerCase() &&
+    (g[0]?.toLowerCase() === colors.surface.toLowerCase() ||
+     g[0]?.toLowerCase() === colors.bg.toLowerCase() ||
+     g[0]?.toLowerCase() === '#fff' ||
+     g[0]?.toLowerCase() === '#ffffff');
+  const fill: [string, string] = invisible ? [colors.primary, colors.primaryDark] : g;
+
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} style={{ opacity: disabled ? 0.6 : 1 }}>
       {isWeb ? (
-        <View style={[styles.btn, shadow.float, { backgroundColor: g[0] }]}>
+        <View style={[styles.btn, shadow.float, { backgroundColor: fill[0] }]}>
           {loading ? <ActivityIndicator color="#fff" />
                    : <Text style={styles.btnText}>{label}</Text>}
         </View>
       ) : (
-        <LinearGradient colors={g} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+        <LinearGradient colors={fill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={[styles.btn, shadow.float]}>
           {loading ? <ActivityIndicator color="#fff" />
                    : <Text style={styles.btnText}>{label}</Text>}
