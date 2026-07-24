@@ -32,6 +32,7 @@ export function phoneticToHindi(str: string): string {
     shri: 'श्री', shru: 'श्रु',
     ksh: 'क्ष', gya: 'ज्ञ', tra: 'त्र', shr: 'श्र',
     sh: 'श', kh: 'ख', gh: 'घ', ch: 'च', jh: 'झ',
+    ngh: '\u0902\u0939',                                    // Singh -> सिंह, not सिङ्ह
     th: 'थ', dh: 'ध', ph: 'फ', bh: 'भ', nh: 'ण', ng: 'ङ',
     k: 'क', g: 'ग', c: 'क', j: 'ज', t: 'त', d: 'द',
     n: 'न', p: 'प', b: 'ब', m: 'म', y: 'य', r: 'र',
@@ -40,7 +41,12 @@ export function phoneticToHindi(str: string): string {
   };
   const VOWEL_KEYS = Object.keys(VOWELS_STANDALONE).sort((a, b) => b.length - a.length);
   const CONS_KEYS = Object.keys(CONSONANTS).sort((a, b) => b.length - a.length);
-  const CONS_COMPLETE = new Set(['shri', 'shru', 'gya', 'tra', 'ksh', 'shr']);
+  // "Complete" means the cluster already carries its own vowel, so a vowel
+  // after it starts a NEW syllable. shri/shru end in a matra and gya/tra
+  // carry the inherent 'a'. ksh and shr do NOT — they end on a bare
+  // consonant, and marking them complete turned "Mishra" into मिश्रअ
+  // (a stray standalone अ) instead of मिश्रा.
+  const CONS_COMPLETE = new Set(['shri', 'shru', 'gya', 'tra']);
   const HALANT = '\u094D';
 
   function matchPrefix(s: string, i: number, keys: string[]): string | null {
@@ -56,7 +62,16 @@ export function phoneticToHindi(str: string): string {
   while (i < lower.length) {
     const v = matchPrefix(lower, i, VOWEL_KEYS);
     if (v) {
-      result += lastWasConsonant ? VOWEL_MATRAS[v] : VOWELS_STANDALONE[v];
+      if (lastWasConsonant) {
+        // A TRAILING 'a' is not the inherent vowel — it has to be written as
+        // the matra ा. Without this the word ends on a bare consonant, so
+        // "Sharma" came out शर्म ("sharm"). Every -a name was wrong the same
+        // way: Verma, Gupta, Meena, Priya, Anita, Sinha...
+        const isFinalA = v === 'a' && i + v.length === lower.length;
+        result += isFinalA ? '\u093E' : VOWEL_MATRAS[v];
+      } else {
+        result += VOWELS_STANDALONE[v];
+      }
       i += v.length;
       lastWasConsonant = false;
       continue;
