@@ -23,6 +23,12 @@ export default function ReportCards() {
     : (Array.isArray(user?.parentOf) ? user!.parentOf : []);
 
   const [activeChild, setActiveChild] = useState<string | undefined>(childIds[0]);
+  // Same first-render race as attendance-history: if `user` is not hydrated
+  // yet, childIds is [] and this stays undefined, so no report card ever
+  // loads. Adopt the first child once the list arrives.
+  useEffect(() => {
+    if (!activeChild && childIds.length > 0) setActiveChild(childIds[0]);
+  }, [activeChild, childIds.join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [childNames, setChildNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
