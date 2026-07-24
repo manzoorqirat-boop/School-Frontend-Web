@@ -135,6 +135,10 @@ export default function Timetable() {
       toast.error('Nothing to copy', `${day} has no periods yet.`);
       return;
     }
+    // The copy runs server-side and then reloads, so any unsaved local edits
+    // would be discarded. Make the user save first rather than silently losing
+    // them.
+    if (dirty) { toast.error('Save first', 'Save your changes before copying a day.'); return; }
     setCopyTargets([]);
     setCopyOpen(true);
   }
@@ -143,29 +147,22 @@ export default function Timetable() {
     setCopyTargets(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
   }
 
-  function applyCopy() {
+  async function applyCopy() {
     if (copyTargets.length === 0) { toast.error('Pick a day', 'Select at least one day to copy into.'); return; }
-    // Replace the target days wholesale rather than appending, so copying twice
-    // doesn't duplicate every period.
-    const targetNums = copyTargets.map(d => DAY_NUM[d]);
-    const kept = (entries ?? []).filter(e => !targetNums.includes(e.dayOfWeek));
-    const copies: Entry[] = [];
-    for (const tn of targetNums) {
-      for (const e of dayEntries) {
-        // Strip the server-assigned identity. A plain { ...e } spread carries
-        // the source row's _id into every copy, so the POST body ends up with
-        // the same primary key repeated across Tue/Wed/Thu. The server marks
-        // the old rows Deleted and the new ones Added in one SaveChanges, and
-        // EF rejects the same key being tracked twice — a 500 on save.
-        // These are new rows; let the database assign their ids.
-        const { _id, id, ...rest } = e as any;
-        copies.push({ ...rest, dayOfWeek: tn } as Entry);
-      }
-    }
-    setEntries([...kept, ...copies]);
-    setDirty(true);
-    setCopyOpen(false);
-    toast.success('Copied', `${dayEntries.length} period(s) from ${day} → ${copyTargets.join(', ')}. Press Save to persist.`);
+    // Server-side copy. The API owns this (POST /:id/copy-day) — it clones the
+    // rows itself, so nothing has to strip _id client-side and a copy is
+    // persisted immediately rather than sitting in local state as a pending
+    // edit that a stray reload would lose.
+    try {
+      const res = await API.post(`/api/timetables/${tt._id}/copy-day`, {
+        sourceDay: DAY_NUM[day],
+        targetDays: copyTargets.map(d => DAY_NUM[d]),
+        replace: true,
+      });
+      setCopyOpen(false);
+      await load();          // re-read so the grid shows the server's rows
+      toast.success('Copied', `${res?.copied ?? 0} period(s) from ${day} to ${copyTargets.join(', ')}.`);
+    } catch (e: any) { toast.error('Copy failed', e.message); }
   }
 
   async function saveAll() {
