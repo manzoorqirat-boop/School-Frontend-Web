@@ -106,6 +106,33 @@ export default function Payroll() {
     setApplyForm({ teacherId: isTeacher ? user?._id : '', type: '' });
     setApplyOpen(true);
   }
+  const [nlText, setNlText] = useState('');
+  const [parsing, setParsing] = useState(false);
+
+  // POST /api/payroll/leaves/parse turns "fever, 12th to 14th March" into
+  // type + dates + days. The endpoint existed but nothing called it, so
+  // teachers filled every field by hand.
+  async function parseLeaveText() {
+    if (!nlText.trim()) { toast.error('Nothing to read', 'Describe the leave in a sentence first.'); return; }
+    setParsing(true);
+    try {
+      const res = await API.post('/api/payroll/leaves/parse', { text: nlText.trim() });
+      const pr = res?.parsed;
+      if (!pr) { toast.error('Could not read that', 'Try wording it differently, or fill the fields below.'); return; }
+      setApplyForm((f: any) => ({
+        ...f,
+        // Only take a type the school actually has configured.
+        type: leaveTypes.some((lt: any) => lt.name === pr.type) ? pr.type : f.type,
+        fromDate: String(pr.fromDate ?? '').slice(0, 10) || f.fromDate,
+        toDate: String(pr.toDate ?? '').slice(0, 10) || f.toDate,
+        days: pr.days != null ? String(pr.days) : f.days,
+        reason: pr.reason || f.reason,
+      }));
+      toast.success('Filled from your description', 'Check the fields below before applying.');
+    } catch (e: any) { toast.error('Could not read that', e.message); }
+    finally { setParsing(false); }
+  }
+
   async function applyLeave() {
     const f = applyForm;
     if (!f.teacherId) { toast.error('Missing', 'Select a teacher.'); return; }
@@ -122,6 +149,7 @@ export default function Payroll() {
         type: f.type, fromDate: f.fromDate, toDate: f.toDate, days, reason: f.reason,
       });
       setApplyOpen(false);
+      toast.success('Leave applied', `${days} day(s) of ${f.type} submitted for approval.`);
       load();
     } catch (e: any) { toast.error('Failed', e.message); }
     finally { setSaving(false); }
@@ -253,6 +281,21 @@ export default function Payroll() {
         {manage && !isTeacher && (
           <TeacherPick teachers={teachers} value={applyForm.teacherId} onPick={(id: string) => setApplyForm({ ...applyForm, teacherId: id })} />
         )}
+
+        {/* Describe it in a sentence and let the server fill the fields. */}
+        <Text style={styles.pickLabel}>Describe the leave</Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Field label="" value={nlText} placeholder="e.g. fever, 12th to 14th March"
+              onChangeText={setNlText} />
+          </View>
+          <TouchableOpacity onPress={parseLeaveText} disabled={parsing}
+            style={[styles.parseBtn, parsing && { opacity: 0.5 }]}>
+            <Ionicons name="sparkles-outline" size={16} color="#fff" />
+            <Text style={styles.parseText}>{parsing ? '…' : 'Fill'}</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.hint}>Optional — fills the fields below, which you can still edit.</Text>
         <ChipPicker label="Type *" options={leaveTypes.map((lt: any) => lt.name)} value={applyForm.type} onChange={(v) => setApplyForm({ ...applyForm, type: v })} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><DateField label="From *" value={applyForm.fromDate} onChange={(v) => setApplyForm({ ...applyForm, fromDate: v })} /></View>
@@ -316,6 +359,9 @@ const styles = StyleSheet.create({
   lockBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42,
     borderRadius: radius.md, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.line, marginTop: spacing.md },
   lockText: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  parseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingHorizontal: 12, height: 44, borderRadius: radius.md, backgroundColor: colors.primary },
+  parseText: { ...font.label, color: '#fff', fontWeight: '700' },
   pickLabel: { ...font.label, color: colors.slate },
   teachRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
   teachName: { ...font.body, color: colors.ink },
