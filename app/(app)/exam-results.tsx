@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, EmptyState, Loading } from '@/components/screen';
 import { Card } from '@/components/ui';
-import { exportCSV, exportHTML, htmlTable } from '@/lib/export';
+import { exportCSV, exportHTML, htmlTable, escapeHtml } from '@/lib/export';
 import { toast } from '@/components/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ export default function ExamResults() {
           !sr ? '-' : sr.status === 'absent' ? 'AB' : `${sr.marksObtained ?? '-'}`),
         `${r.totalObtained}/${r.totalMax}`, `${r.overallPct}%`, r.overallGrade ?? '-', r.division ?? '-',
       ]);
-      const head = `<p><b>${data?.exam?.name}</b> &middot; Class ${data?.exam?.class}`
+      const head = `<p><b>${escapeHtml(data?.exam?.name)}</b> &middot; Class ${escapeHtml(data?.exam?.class)}`
         + `${data?.exam?.section ? '-' + data.exam.section : ''}`
         + ` &middot; ${data?.exam?.academicYear ?? ''}</p>`
         + `<p>Pass ${stats.passPercentage ?? 0}% &middot; Average ${stats.avgPct ?? 0}%`
