@@ -17,6 +17,7 @@ export default function Dashboard() {
   const accent = roleAccent(user?.role);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<{ students?: number; feesOutstanding?: number }>({});
+  const [pendingPolls, setPendingPolls] = useState<any[]>([]);
 
   // 3 tiles on a phone, more as the window grows — a fixed 31% would render
   // ~600px squares on a desktop.
@@ -29,13 +30,21 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [s, f] = await Promise.allSettled([
+      const [s, f, pl] = await Promise.allSettled([
         API.get('/api/students?limit=1'),
         API.get('/api/invoices/reports/summary'),
+        API.get('/api/polls'),
       ]);
       const next: any = {};
       if (s.status === 'fulfilled') next.students = s.value?.pagination?.total ?? s.value?.count;
       if (f.status === 'fulfilled') next.feesOutstanding = f.value?.outstanding;
+      // Polls this user has not answered. Admins and principals are targeted
+      // by polls too, and nothing surfaced them — an open poll sat behind a
+      // menu tile until it closed.
+      if (pl.status === 'fulfilled') {
+        const list = Array.isArray(pl.value) ? pl.value : pl.value?.items ?? [];
+        setPendingPolls(list.filter((x: any) => x.status === 'active' && !x.hasVoted));
+      }
       setStats(next);
     } catch {}
   }, []);
@@ -113,6 +122,22 @@ export default function Dashboard() {
         <Text style={styles.school}>{school?.name ?? 'Your school'}</Text>
 
         {/* Stats — quiet cards, with colour carrying meaning (dues turn amber) */}
+        {pendingPolls.length > 0 && (
+          <TouchableOpacity style={styles.pollBanner} onPress={() => router.push('/(app)/polls')}>
+            <Ionicons name="bar-chart" size={20} color={moduleColor('polls')} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pollTitle}>
+                {pendingPolls.length === 1
+                  ? '1 poll needs your response'
+                  : `${pendingPolls.length} polls need your response`}
+              </Text>
+              <Text style={styles.pollSub} numberOfLines={1}>
+                {pendingPolls.map((x: any) => x.title).join(' \u00b7 ')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={moduleColor('polls')} />
+          </TouchableOpacity>
+        )}
         <View style={styles.statRow}>
           <TouchableOpacity style={styles.statCard} activeOpacity={0.7} onPress={() => router.push('/(app)/students' as any)}>
             <View style={styles.statHead}>
@@ -167,6 +192,11 @@ const styles = StyleSheet.create({
   greeting: { ...font.display, color: colors.ink, lineHeight: 34 },
   school: { ...font.body, color: colors.slate, marginTop: spacing.xs },
 
+  pollBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.md,
+    minHeight: 56, marginTop: spacing.xl, borderRadius: radius.lg,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: moduleColor('polls') + '55' },
+  pollTitle: { ...font.body, color: colors.ink, fontWeight: '700' },
+  pollSub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
   statRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.lg },
   statHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
