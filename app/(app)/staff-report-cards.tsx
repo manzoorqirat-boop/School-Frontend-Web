@@ -10,7 +10,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, ChipPicker, SearchBar, EmptyState, Loading } from '@/components/screen';
 import { Card } from '@/components/ui';
-import { exportHTML, htmlTable } from '@/lib/export';
+import { exportHTML, htmlTable, escapeHtml } from '@/lib/export';
 import { toast } from '@/components/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,14 +123,17 @@ export default function StaffReportCards() {
     const st = report.student ?? {};
     const name = `${st.firstName ?? ''} ${st.lastName ?? ''}`.trim() || 'student';
     try {
-      let body = `<p><b>${name}</b> &middot; Class ${st.class ?? ''}${st.section ? '-' + st.section : ''}`
+      // escapeHtml: these come from user-entered records and the .NET backend
+      // does not strip tags. htmlTable escapes internally; hand-built fragments
+      // must do it themselves.
+      let body = `<p><b>${escapeHtml(name)}</b> &middot; Class ${escapeHtml(st.class ?? '')}${st.section ? '-' + escapeHtml(st.section) : ''}`
         + `${st.rollNo ? ` &middot; Roll ${st.rollNo}` : ''}`
         + `${st.admissionNo ? ` &middot; Adm ${st.admissionNo}` : ''}`
         + `${report.academicYear ? ` &middot; ${report.academicYear}` : ''}</p>`;
 
       (report.exams ?? []).forEach((ex: any) => {
         const t = ex.totals ?? {};
-        body += `<h2>${ex.exam?.name ?? ''} — ${t.overallPct ?? 0}% (${t.totalObtained ?? 0}/${t.totalMax ?? 0})`
+        body += `<h2>${escapeHtml(ex.exam?.name ?? '')} — ${t.overallPct ?? 0}% (${t.totalObtained ?? 0}/${t.totalMax ?? 0})`
           + `${t.overallGrade ? ` &middot; Grade ${t.overallGrade}` : ''}</h2>`;
         body += htmlTable(['Subject', 'Marks', 'Grade'],
           (ex.subjects ?? []).map((sub: any) => [
