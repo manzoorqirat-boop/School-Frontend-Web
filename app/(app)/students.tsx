@@ -274,8 +274,36 @@ export default function Students() {
 
   async function doExport() {
     try {
-      await exportCSV('students', ['Name', 'Admission No', 'Class', 'Section', 'Roll', 'Father', 'Phone', 'Status'],
-        filtered.map(s => [`${s.firstName} ${s.lastName ?? ''}`.trim(), s.admissionNo, s.class, s.section, s.rollNo, s.fatherName, s.fatherPhone, s.status ?? 'active']));
+      // The old export had 8 columns — name, admission, class, section, roll,
+      // father, phone, status — and silently dropped everything else the form
+      // captures, so an exported sheet could not be used to re-import or to
+      // check records. Export the full record instead.
+      const d = (v: any) => (v == null ? '' : String(v).slice(0, 10));   // dates
+      await exportCSV('students', [
+        'Admission No', 'First Name', 'Last Name', 'Class', 'Section', 'Roll No',
+        'Status', 'Academic Year', 'Gender', 'DOB', 'Blood Group',
+        'Father', 'Father Phone', 'Father Occupation',
+        'Mother', 'Mother Phone', 'Mother Occupation',
+        'Guardian', 'Guardian Phone', 'Guardian Relation',
+        'Phone', 'Email', 'Address', 'City', 'State', 'Pincode',
+        'Category', 'Caste', 'Religion', 'Nationality', 'Mother Tongue', 'House',
+        'Aadhar No', 'Birth Cert No', 'Admission Date',
+        'Previous School', 'Previous Class',
+        'Transport Mode', 'Bus Route', 'Pickup Point',
+        'TC No', 'TC Date', 'Notes',
+      ], filtered.map(s => [
+        s.admissionNo, s.firstName, s.lastName, s.class, s.section, s.rollNo,
+        s.status ?? 'active', s.academicYear, s.gender, d(s.dob), s.bloodGroup,
+        s.fatherName, s.fatherPhone, s.fatherOccup,
+        s.motherName, s.motherPhone, s.motherOccup,
+        s.guardianName, s.guardianPhone, s.guardianRel,
+        s.phone, s.email, s.address, s.city, s.state, s.pincode,
+        s.category, s.caste, s.religion, s.nationality, s.motherTongue, s.house,
+        s.aadharNo, s.birthCertNo, d(s.admissionDate),
+        s.prevSchool, s.prevClass,
+        s.transportMode, s.busRoute, s.pickupPoint,
+        s.tcNo, d(s.tcDate), s.notes,
+      ]));
     } catch (e: any) { toast.error('Export failed', e.message); }
   }
 
@@ -418,7 +446,14 @@ export default function Students() {
         submitLabel={editingId ? 'Update' : 'Create'}>
 
         <Collapsible title="Identity" defaultOpen>
-          <Field label="Admission No *" value={form.admissionNo} placeholder="Auto-generated…" onChangeText={(v: string) => set('admissionNo', v)} />
+          {/* The API only accepts admissionNo on CREATE (ApplyWrite guards it
+              with isCreate). Leaving the field editable on edit meant a typed
+              change was accepted by the form and silently dropped by the
+              server — the worst kind of "it saved" lie. */}
+          <Field label="Admission No *" value={form.admissionNo} placeholder="Auto-generated…"
+            disabled={!!editingId}
+            hint={editingId ? 'Admission number cannot be changed after admission.' : undefined}
+            onChangeText={(v: string) => set('admissionNo', v)} />
           <BilingualField label="First name *" en={form.firstName ?? ''} hi={form.firstNameHi ?? ''} onEn={(v) => onEn('firstName','firstNameHi',v)} onHi={(v) => onHi('firstNameHi',v)} />
           <BilingualField label="Last name" en={form.lastName ?? ''} hi={form.lastNameHi ?? ''} onEn={(v) => onEn('lastName','lastNameHi',v)} onHi={(v) => onHi('lastNameHi',v)} />
           <ChipPicker label="Class *" options={classes} value={form.class ?? '1'} onChange={(v) => { set('class', v); fetchRoll(v, form.section); }} />
@@ -529,6 +564,15 @@ export default function Students() {
                 <View style={{ flex: 1 }}><Field label="Obtained" value={ex.obtainedMarks != null ? String(ex.obtainedMarks) : ''} keyboardType="numeric" onChangeText={(v: string) => setExam(i, 'obtainedMarks', v === '' ? null : parseFloat(v))} /></View>
                 <View style={{ flex: 1 }}><Field label="Max marks" value={ex.maxMarks != null ? String(ex.maxMarks) : ''} keyboardType="numeric" onChangeText={(v: string) => setExam(i, 'maxMarks', v === '' ? null : parseFloat(v))} /></View>
               </View>
+              {/* Derived, not stored: percentage is obtained/max, so keeping it
+                  as a third input would let the three disagree. Shown live so
+                  a typo in either number is obvious immediately. */}
+              {ex.obtainedMarks != null && ex.maxMarks != null && Number(ex.maxMarks) > 0 && (
+                <Text style={styles.pctLine}>
+                  Percentage: {(Number(ex.obtainedMarks) * 100 / Number(ex.maxMarks)).toFixed(2)}%
+                  {Number(ex.obtainedMarks) > Number(ex.maxMarks) ? '  \u2014 obtained is above max marks' : ''}
+                </Text>
+              )}
             </View>
           ))}
           <TouchableOpacity style={styles.addChild}
@@ -575,6 +619,7 @@ const styles = StyleSheet.create({
   childIdx: { ...font.label, color: colors.slate, fontWeight: '700' },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   checkLabel: { ...font.body, color: colors.ink },
+  pctLine: { ...font.label, color: colors.primary, fontWeight: '700', marginTop: 6 },
   addChild: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed' },
   addChildText: { ...font.label, color: colors.primary, fontWeight: '600' },
   addBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
