@@ -6,7 +6,7 @@ import { API } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
-import { Screen, ListItem, EmptyState, Loading } from '@/components/screen';
+import { Screen, ListItem, EmptyState, Loading, FormModal } from '@/components/screen';
 import { GradientButton } from '@/components/ui';
 import { toast } from '@/components/toast';
 
@@ -36,6 +36,48 @@ export default function Marks() {
   // back, or by picking another subject — refetches and silently discards
   // everything typed. Track it and warn.
   const [dirty, setDirty] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+
+  // Bulk entry. The Next.js app read navigator.clipboard directly, which is
+  // web-only and needs a permission grant; RN 0.74 dropped the built-in
+  // Clipboard module and expo-clipboard is not a dependency here. A box the
+  // teacher pastes INTO works identically on both platforms with no new
+  // dependency — and it lets them see what landed before it is applied.
+  function applyPaste() {
+    // One value per line. Excel copies a column as newline-separated, and a
+    // multi-column selection as tab-separated — take the first cell of each
+    // row so either shape works.
+    const values = pasteText.split(/\r?\n/)
+      .map(line => line.split('\t')[0].trim())
+      .filter(v => v !== '');
+    if (values.length === 0) { toast.error('Nothing to paste', 'Paste a column of marks first.'); return; }
+
+    let applied = 0, skipped = 0;
+    setGrid(prev => prev.map((row, i) => {
+      if (i >= values.length) return row;
+      const raw = values[i];
+      const up = raw.toUpperCase();
+      if (up === 'AB' || up === 'A' || up === 'ABSENT') { applied++; return { ...row, status: 'absent', marks: '' }; }
+      const n = parseFloat(raw);
+      if (Number.isNaN(n)) { skipped++; return row; }
+      applied++;
+      return { ...row, status: 'present', marks: String(n) };
+    }));
+
+    setDirty(true);
+    setPasteOpen(false);
+    setPasteText('');
+    // Values map to rows IN ORDER — say so, because a mismatched paste is
+    // silently wrong otherwise.
+    toast.success('Pasted',
+      `${applied} value(s) applied in list order${skipped ? `, ${skipped} skipped (not a number)` : ''}. Review, then Save.`);
+  }
+
+  function markAllPresent() {
+    setDirty(true);
+    setGrid(prev => prev.map(r => r.status === 'absent' ? { ...r, status: 'present' } : r));
+  }
 
   async function pickExam(e: any) {
     setExam(e); setSubject(null); setStep('subject');
@@ -143,6 +185,16 @@ export default function Marks() {
 
       {step === 'grid' && (
         <>
+          <View style={styles.toolbar}>
+            <TouchableOpacity onPress={() => { setPasteText(''); setPasteOpen(true); }} style={styles.toolBtn}>
+              <Ionicons name="clipboard-outline" size={15} color={rt.accent} />
+              <Text style={[styles.toolText, { color: rt.accent }]}>Paste from Excel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={markAllPresent} style={styles.toolBtn}>
+              <Ionicons name="checkmark-done-outline" size={15} color={colors.slate} />
+              <Text style={[styles.toolText, { color: colors.slate }]}>All present</Text>
+            </TouchableOpacity>
+          </View>
           <FlatList
             data={grid}
             keyExtractor={r => r.studentId}
@@ -178,6 +230,30 @@ export default function Marks() {
           </View>
         </>
       )}
+      {/* Paste from Excel */}
+      <FormModal visible={pasteOpen} title="Paste marks from Excel"
+        onClose={() => setPasteOpen(false)} onSubmit={applyPaste} submitLabel="Apply">
+        <Text style={styles.pasteHint}>
+          Copy one column of marks from your spreadsheet and paste it below — one value per line,
+          in the same order as the list. Use AB for absent.
+        </Text>
+        <TextInput
+          style={styles.pasteBox}
+          value={pasteText}
+          onChangeText={setPasteText}
+          multiline
+          numberOfLines={8}
+          placeholder={'85\n72\nAB\n64'}
+          placeholderTextColor={colors.muted}
+          textAlignVertical="top"
+          autoFocus
+        />
+        <Text style={styles.pasteHint}>
+          {pasteText.split(/\r?\n/).filter(v => v.trim() !== '').length} value(s) ready
+          {' \u00b7 '}{grid.length} student(s) in the list
+        </Text>
+      </FormModal>
+
     </Screen>
   );
 }
@@ -195,6 +271,15 @@ const styles = StyleSheet.create({
   absBtn: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.bg,
     alignItems: 'center', justifyContent: 'center' },
   absText: { ...font.caption, color: colors.slate },
+  toolbar: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  toolBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 10, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line },
+  toolText: { ...font.label, fontWeight: '600' },
+  pasteBox: { minHeight: 150, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md,
+    padding: spacing.md, ...font.body, color: colors.ink, backgroundColor: colors.surface },
+  pasteHint: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0,
+    lineHeight: 16, marginBottom: 6, marginTop: 6 },
   saveBar: { padding: spacing.lg, backgroundColor: colors.bg,
     borderTopWidth: 1, borderTopColor: colors.line,
     // Was position:absolute/bottom:0 — anchored to the window, so on a tall
