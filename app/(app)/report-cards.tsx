@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, EmptyState, Loading } from '@/components/screen';
 import { Card } from '@/components/ui';
-import { exportHTML, htmlTable } from '@/lib/export';
+import { exportHTML, htmlTable, escapeHtml } from '@/lib/export';
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '@/components/toast';
 
@@ -53,7 +53,7 @@ export default function ReportCards() {
       const name = `${report.student?.firstName ?? 'student'}`;
       let body = '';
       (report.exams ?? []).forEach((ex: any) => {
-        body += `<h2 style="color:#6D3CF0;font-size:16px;margin-top:16px">${ex.examName} — ${ex.percentage}%</h2>`;
+        body += `<h2 style="color:#6D3CF0;font-size:16px;margin-top:16px">${escapeHtml(ex.examName)} — ${ex.percentage}%</h2>`;
         body += htmlTable(['Subject', 'Marks', 'Grade'],
           (ex.subjects ?? []).map((sub: any) => [sub.subjectName, sub.status === 'absent' ? 'AB' : `${sub.marksObtained ?? '-'}/${sub.maxMarks}`, sub.grade ?? '']));
       });
