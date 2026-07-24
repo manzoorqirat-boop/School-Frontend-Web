@@ -96,6 +96,28 @@ export default function StaffReportCards() {
     } finally { setLoading(false); }
   }
 
+  // The PDF endpoint needs the bearer token, so it cannot be a plain <a href>.
+  // Fetch it as a blob and hand the browser an object URL.
+  async function downloadPdf() {
+    if (!picked) return;
+    try {
+      const token = await API.token();
+      const qs = academicYear ? `?academicYear=${encodeURIComponent(academicYear)}` : '';
+      const res = await fetch(`${API.base}/api/report-cards/student/${picked._id}/pdf${qs}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `report-card-${picked.firstName ?? 'student'}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Downloaded', 'Report card PDF saved.');
+    } catch (e: any) { toast.error('PDF failed', e.message); }
+  }
+
   async function doExport() {
     if (!report) return;
     const st = report.student ?? {};
@@ -155,9 +177,14 @@ export default function StaffReportCards() {
         subtitle={`Class ${st.class ?? ''}${st.section ? '-' + st.section : ''}${report?.academicYear ? ' \u00b7 ' + report.academicYear : ''}`}
         colors={rt.gradient} onBack={() => { setPicked(null); setReport(null); }}
         right={report ? (
-          <TouchableOpacity onPress={doExport} style={styles.iconBtn}>
-            <Ionicons name="download-outline" size={20} color={colors.ink} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TouchableOpacity onPress={downloadPdf} style={styles.iconBtn}>
+              <Ionicons name="document-text-outline" size={20} color={colors.ink} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={doExport} style={styles.iconBtn}>
+              <Ionicons name="download-outline" size={20} color={colors.ink} />
+            </TouchableOpacity>
+          </View>
         ) : undefined}
         scroll={false}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl }}>
