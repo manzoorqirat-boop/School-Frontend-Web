@@ -21,6 +21,14 @@ export default function AttendanceHistory() {
     ? (user?.studentId ? [user.studentId] : [])
     : (Array.isArray(user?.parentOf) ? user!.parentOf : []);
   const [child, setChild] = useState<string | undefined>(childIds[0]);
+  // useState captures its initial value on the FIRST render only. AuthProvider
+  // may still be resolving then, so childIds is [] and `child` stays undefined
+  // forever — load() bails on `if (!sid)` and the endpoint is never called.
+  // That is why the screen showed 0/0/0 no matter how much attendance was
+  // marked. Adopt the first child as soon as the list actually arrives.
+  useEffect(() => {
+    if (!child && childIds.length > 0) setChild(childIds[0]);
+  }, [child, childIds.join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [childNames, setChildNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
