@@ -64,7 +64,7 @@ export async function exportCSV(filename: string, headers: string[], rows: (stri
 export async function exportHTML(filename: string, title: string, bodyHtml: string) {
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${title}</title>
+<title>${esc(title)}</title>
 <style>
   body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; color: #0F172A; }
   h1 { color: #6D3CF0; font-size: 22px; }
@@ -73,12 +73,31 @@ export async function exportHTML(filename: string, title: string, bodyHtml: stri
   th { background: #6D3CF0; color: #fff; text-align: left; padding: 8px; }
   td { padding: 8px; border-bottom: 1px solid #E2E8F0; }
   tr:nth-child(even) td { background: #F6F7FB; }
-</style></head><body><h1>${title}</h1>${bodyHtml}</body></html>`;
+</style></head><body><h1>${esc(title)}</h1>${bodyHtml}</body></html>`;
   await shareFile(filename.endsWith('.html') ? filename : filename + '.html', html, 'text/html');
 }
 
+// Escape before interpolating into HTML.
+//
+// The .NET backend does NOT strip HTML from input the way the Node backend did
+// (app.use(sanitizeBody)), so a student name really can contain a <script> tag.
+// React and React Native escape on render, so the app itself is safe — but an
+// exported .html file opened in a browser is not. Without this, a stored
+// payload executes the moment someone opens the export.
+function esc(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function htmlTable(headers: string[], rows: (string | number | null | undefined)[][]): string {
-  const head = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
-  const body = rows.map(r => '<tr>' + r.map(c => `<td>${c ?? ''}</td>`).join('') + '</tr>').join('');
+  const head = '<tr>' + headers.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
+  const body = rows.map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('');
   return `<table>${head}${body}</table>`;
 }
+
+/** Escape a value for callers that build their own HTML fragments. */
+export const escapeHtml = esc;
