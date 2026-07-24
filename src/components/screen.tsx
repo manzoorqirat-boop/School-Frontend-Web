@@ -126,13 +126,25 @@ export function Loading() {
 // ── Form field ──────────────────────────────────────────────────────────────
 export function Field({
   label, value, onChangeText, placeholder, keyboardType, secureTextEntry, autoCapitalize,
+  disabled, hint, multiline, numberOfLines,
 }: any) {
   return (
     <View style={{ gap: 6 }}>
       {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
-      <TextInput style={[styles.fieldInput, shadow.card]} value={value?.toString() ?? ''}
-        onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.muted}
-        keyboardType={keyboardType} secureTextEntry={secureTextEntry} autoCapitalize={autoCapitalize} />
+      {/* `disabled` renders read-only rather than hiding the value — a field
+          the server will not accept (admission number on edit, say) must still
+          be visible, just clearly not editable. Typing into one and having the
+          change silently dropped is the worse outcome. */}
+      <TextInput
+        style={[styles.fieldInput, shadow.card, disabled && styles.fieldDisabled,
+          multiline && { minHeight: 90, textAlignVertical: 'top' }]}
+        value={value?.toString() ?? ''}
+        editable={!disabled}
+        onChangeText={disabled ? undefined : onChangeText}
+        placeholder={placeholder} placeholderTextColor={colors.muted}
+        keyboardType={keyboardType} secureTextEntry={secureTextEntry}
+        autoCapitalize={autoCapitalize} multiline={multiline} numberOfLines={numberOfLines} />
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
     </View>
   );
 }
@@ -345,8 +357,10 @@ const pk = StyleSheet.create({
 });
 
 // ── Picker (simple horizontal chips) ────────────────────────────────────────
-export function ChipPicker({ label, options, value, onChange }: {
+export function ChipPicker({ label, options, value, onChange, blankLabel = 'All' }: {
   label?: string; options: string[]; value: string; onChange: (v: string) => void;
+  /** Text shown for the '' option — the "no filter" choice. */
+  blankLabel?: string;
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -354,10 +368,13 @@ export function ChipPicker({ label, options, value, onChange }: {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {options.map(o => {
           const on = o === value;
+          // An empty-string option is the "no filter" choice. It used to render
+          // as a blank chip — a coloured circle with no text, which reads as a
+          // rendering bug rather than a control. Give it a visible label.
           return (
-            <TouchableOpacity key={o} onPress={() => onChange(o)}
+            <TouchableOpacity key={o || '__blank__'} onPress={() => onChange(o)}
               style={[styles.pick, on && { backgroundColor: colors.primary }]}>
-              <Text style={[styles.pickText, on && { color: '#fff' }]}>{o}</Text>
+              <Text style={[styles.pickText, on && { color: '#fff' }]}>{o === '' ? blankLabel : o}</Text>
             </TouchableOpacity>
           );
         })}
@@ -434,6 +451,8 @@ const styles = StyleSheet.create({
   emptyText: { ...font.body, color: colors.muted },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl },
 
+  fieldDisabled: { backgroundColor: colors.surfaceAlt, color: colors.muted },
+  fieldHint: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0 },
   fieldLabel: { ...font.label, color: colors.slate },
   fieldInput: { backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: spacing.lg,
     height: 50, ...font.body, color: colors.ink },
