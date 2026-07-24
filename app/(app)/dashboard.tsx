@@ -74,6 +74,7 @@ export default function Dashboard() {
     { key: 'reports', label: t('nav.reports', 'Reports'), icon: 'stats-chart-outline', route: '/(app)/reports', show: ['superadmin', 'school_admin', 'principal', 'accountant', 'teacher'].includes(r) },
     { key: 'timetable', label: t('nav.timetable', 'Timetable'), icon: 'calendar-outline', route: '/(app)/timetable', show: true },
     { key: 'payroll', label: t('nav.payroll', 'Payroll'), icon: 'cash-outline', route: '/(app)/payroll', show: can('payroll') },
+    { key: 'salary-structures', label: t('nav.salaryStructures', 'Salary Structures'), icon: 'card-outline', route: '/(app)/salary-structures', show: can('payroll') },
     { key: 'polls', label: t('nav.polls', 'Polls'), icon: 'bar-chart-outline', route: '/(app)/polls', show: true },
     { key: 'users', label: t('nav.users', 'Users'), icon: 'person-circle-outline', route: '/(app)/users', show: can('users') },
     { key: 'audit', label: t('nav.audit', 'Audit Log'), icon: 'time-outline', route: '/(app)/audit', show: can('users') },
