@@ -50,8 +50,20 @@ export default function Attendance() {
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() + days);
     if (iso(d) > today()) return;               // no future marking
+    if (!resetRoster()) return;
     setDate(iso(d));
-    setRoster(null);                            // stale roster for old date
+  }
+
+  // Every path that discards the roster goes through here. Marks live in local
+  // state until Save, so switching class/section/date/mode silently threw away
+  // a whole class's attendance with no warning.
+  function resetRoster(): boolean {
+    if (roster && Object.keys(marks).length > 0) {
+      toast.error('Unsaved attendance', 'Save your marks first, or reload to discard them.');
+      return false;
+    }
+    setRoster(null);
+    return true;
   }
 
   const loadRoster = useCallback(async () => {
@@ -137,12 +149,12 @@ export default function Attendance() {
           </TouchableOpacity>
         </View>
 
-        <ChipPicker label="Class" options={classes} value={cls} onChange={(v) => { setCls(v); setRoster(null); }} />
-        <ChipPicker label="Section" options={sections} value={sec} onChange={(v) => { setSec(v); setRoster(null); }} />
-        <ChipPicker label="Mode" options={['daily', 'period']} value={mode} onChange={(v) => { setMode(v as any); setRoster(null); }} />
+        <ChipPicker label="Class" options={classes} value={cls} onChange={(v) => { if (resetRoster()) setCls(v); }} />
+        <ChipPicker label="Section" options={sections} value={sec} onChange={(v) => { if (resetRoster()) setSec(v); }} />
+        <ChipPicker label="Mode" options={['daily', 'period']} value={mode} onChange={(v) => { if (resetRoster()) setMode(v as any); }} />
         {mode === 'period' && (
           <>
-            <ChipPicker label="Period" options={PERIODS} value={period} onChange={(v) => { setPeriod(v); setRoster(null); }} />
+            <ChipPicker label="Period" options={PERIODS} value={period} onChange={(v) => { if (resetRoster()) setPeriod(v); }} />
             <Field label="Subject (optional)" value={subject} onChangeText={setSubject} placeholder="e.g. Maths" />
           </>
         )}
