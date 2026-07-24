@@ -50,6 +50,22 @@ export default function Portal() {
             <Text style={styles.avatarText}>{(user?.name ?? 'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</Text>
           </TouchableOpacity>
         </View>} />
+      {pendingPolls.length > 0 && (
+        <TouchableOpacity style={styles.pollBanner} onPress={() => router.push('/(app)/polls')}>
+          <Ionicons name="bar-chart" size={20} color={colors.pink} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pollTitle}>
+              {pendingPolls.length === 1
+                ? '1 poll needs your response'
+                : `${pendingPolls.length} polls need your response`}
+            </Text>
+            <Text style={styles.pollSub} numberOfLines={1}>
+              {pendingPolls.map((x: any) => x.title).join(' \u00b7 ')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.pink} />
+        </TouchableOpacity>
+      )}
       <View style={styles.statRow}>
         <StatTile label="Attendance" value={attendancePct != null ? `${attendancePct}%` : '—'} icon="checkbox" tint={colors.emerald} />
         <StatTile label="Fees Due" value={feesDue != null ? `₹${Number(feesDue).toLocaleString('en-IN')}` : '—'} icon="wallet" tint={colors.amber} />
@@ -66,6 +82,12 @@ export default function Portal() {
   );
 }
 const styles = StyleSheet.create({
+  pollBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.md,
+    minHeight: 56, marginHorizontal: spacing.lg, marginBottom: spacing.md,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.pink + '55' },
+  pollTitle: { ...font.body, color: colors.ink, fontWeight: '700' },
+  pollSub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
   avatar: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.ink, fontWeight: '700', fontSize: 14 },
   statRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.xl, marginTop: -spacing.lg },
