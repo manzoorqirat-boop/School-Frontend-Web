@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 
 const BASE: string =
   (Constants.expoConfig?.extra as any)?.apiBase ??
-  'https://schoolnet-production-ac7d.up.railway.app';
+  'https://schoolnet-production-fedc.up.railway.app';
 
 export type SessionUser = {
   _id?: string;
