@@ -186,6 +186,29 @@ export default function SchoolSetup() {
           <Field label="Reminder day of month (1-28)" value={form.feeReminderDay != null ? String(form.feeReminderDay) : ''} keyboardType="numeric" onChangeText={(v: string) => set('feeReminderDay', v)} />
         </Collapsible>
 
+        <Collapsible title="UPI / QR Payments">
+          <Text style={styles.hint}>
+            Parents pay straight to this UPI ID from any UPI app — no gateway, no
+            fees. Nothing is verified automatically: the office still records the
+            payment against the invoice once the money lands. Leave the VPA blank
+            to turn UPI collection off.
+          </Text>
+          <Field
+            label="UPI ID (VPA)"
+            value={form.paymentVpa ?? ''}
+            autoCapitalize="none"
+            placeholder="school@hdfcbank"
+            onChangeText={(v: string) => set('paymentVpa', v)}
+          />
+          <Field
+            label="Payee name"
+            value={form.paymentPayeeName ?? ''}
+            placeholder={form.name || 'Shown in the payer\u2019s UPI app'}
+            hint="What the parent sees in their UPI app before confirming. Defaults to the school name."
+            onChangeText={(v: string) => set('paymentPayeeName', v)}
+          />
+        </Collapsible>
+
         <Collapsible title={`Leave Types (${leaveTypes.length})`}>
           <Text style={styles.hint}>Used when staff apply for leave. Unpaid types drive payslip deductions.</Text>
           {leaveTypes.map((t, i) => (
