@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
+import { can } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { API } from '@/lib/api';
 import { colors, spacing, font, radius, roleAccent, roleLabel, moduleColor } from '@/theme';
@@ -18,6 +19,10 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<{ students?: number; feesOutstanding?: number }>({});
   const [pendingPolls, setPendingPolls] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
+  const [birthdays, setBirthdays] = useState<any[]>([]);
+
+  const canSeeBirthdays = can(user, 'birthday:view');
 
   // 3 tiles on a phone, more as the window grows — a fixed 31% would render
   // ~600px squares on a desktop.
@@ -30,10 +35,17 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [s, f, pl] = await Promise.allSettled([
+      const [s, f, pl, nt, bd] = await Promise.allSettled([
         API.get('/api/students?limit=1'),
         API.get('/api/invoices/reports/summary'),
         API.get('/api/polls'),
+        API.get('/api/notices?limit=3'),
+        // The server has no per-school timezone, so it trusts the client's
+        // offset to decide what "today" is. Without this a UTC-hosted API
+        // rolls the list over at 18:30 IST and shows tomorrow's birthdays.
+        canSeeBirthdays
+          ? API.get(`/api/birthdays?days=7&tzOffsetMinutes=${-new Date().getTimezoneOffset()}`)
+          : Promise.resolve(null),
       ]);
       const next: any = {};
       if (s.status === 'fulfilled') next.students = s.value?.pagination?.total ?? s.value?.count;
@@ -45,9 +57,16 @@ export default function Dashboard() {
         const list = Array.isArray(pl.value) ? pl.value : pl.value?.items ?? [];
         setPendingPolls(list.filter((x: any) => x.status === 'active' && !x.hasVoted));
       }
+      if (nt.status === 'fulfilled') {
+        const list = Array.isArray(nt.value) ? nt.value : nt.value?.items ?? [];
+        setNotices(list);
+      }
+      // Only today's — the seven-day window is fetched so the empty case is
+      // distinguishable, but the dashboard shows just today.
+      if (bd.status === 'fulfilled' && bd.value) setBirthdays(bd.value.today ?? []);
       setStats(next);
     } catch {}
-  }, []);
+  }, [canSeeBirthdays]);
   useEffect(() => { load(); }, [load]);
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 
@@ -84,6 +103,7 @@ export default function Dashboard() {
     { key: 'timetable', label: t('nav.timetable', 'Timetable'), icon: 'calendar-outline', route: '/(app)/timetable', show: true },
     { key: 'payroll', label: t('nav.payroll', 'Payroll'), icon: 'cash-outline', route: '/(app)/payroll', show: can('payroll') },
     { key: 'salary-structures', label: t('nav.salaryStructures', 'Salary Structures'), icon: 'card-outline', route: '/(app)/salary-structures', show: can('payroll') },
+    { key: 'notices', label: t('nav.notices', 'Notice Board'), icon: 'megaphone-outline', route: '/(app)/notices', show: true },
     { key: 'polls', label: t('nav.polls', 'Polls'), icon: 'bar-chart-outline', route: '/(app)/polls', show: true },
     { key: 'users', label: t('nav.users', 'Users'), icon: 'person-circle-outline', route: '/(app)/users', show: can('users') },
     { key: 'audit', label: t('nav.audit', 'Audit Log'), icon: 'time-outline', route: '/(app)/audit', show: can('users') },
@@ -138,6 +158,57 @@ export default function Dashboard() {
             <Ionicons name="chevron-forward" size={18} color={moduleColor('polls')} />
           </TouchableOpacity>
         )}
+        {/* Birthdays — today only. Staff-facing; hidden without the privilege. */}
+        {canSeeBirthdays && birthdays.length > 0 && (
+          <View style={styles.bdayCard}>
+            <View style={styles.bdayHead}>
+              <Ionicons name="gift" size={16} color={moduleColor('birthdays')} />
+              <Text style={styles.bdayTitle}>
+                {birthdays.length === 1 ? 'Birthday today' : `${birthdays.length} birthdays today`}
+              </Text>
+            </View>
+            <View style={styles.bdayList}>
+              {birthdays.slice(0, 6).map((p: any) => (
+                <View key={p._id} style={styles.bdayChip}>
+                  <Text style={styles.bdayName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.bdaySub} numberOfLines={1}>
+                    {p.type === 'student'
+                      ? [p.class, p.section].filter(Boolean).join(' ')
+                      : roleLabel(p.role)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {birthdays.length > 6 && (
+              <Text style={styles.bdayMore}>+{birthdays.length - 6} more</Text>
+            )}
+          </View>
+        )}
+
+        {/* Latest notices */}
+        {notices.length > 0 && (
+          <TouchableOpacity
+            style={styles.noticeCard}
+            activeOpacity={0.8}
+            onPress={() => router.push('/(app)/notices' as any)}
+          >
+            <View style={styles.bdayHead}>
+              <Ionicons name="megaphone" size={16} color={moduleColor('notices')} />
+              <Text style={styles.bdayTitle}>Notice board</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} style={{ marginLeft: 'auto' }} />
+            </View>
+            {notices.slice(0, 3).map((n: any) => (
+              <View key={n._id} style={styles.noticeRow}>
+                {n.isPinned ? <Ionicons name="pin" size={11} color={moduleColor('notices')} /> : null}
+                <Text style={styles.noticeTitle} numberOfLines={1}>{n.title}</Text>
+                {n.priority === 'urgent' ? (
+                  <View style={styles.urgentDot} />
+                ) : null}
+              </View>
+            ))}
+          </TouchableOpacity>
+        )}
+
         <View style={styles.statRow}>
           <TouchableOpacity style={styles.statCard} activeOpacity={0.7} onPress={() => router.push('/(app)/students' as any)}>
             <View style={styles.statHead}>
@@ -198,6 +269,23 @@ const styles = StyleSheet.create({
   pollTitle: { ...font.body, color: colors.ink, fontWeight: '700' },
   pollSub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
   statRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
+
+  bdayCard: { marginTop: spacing.xl, padding: spacing.lg, borderRadius: radius.lg,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: spacing.md },
+  bdayHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  bdayTitle: { ...font.body, color: colors.ink, fontWeight: '700' },
+  bdayList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  bdayChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt, minWidth: 150 },
+  bdayName: { ...font.body, color: colors.ink, fontWeight: '600' },
+  bdaySub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
+  bdayMore: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0 },
+
+  noticeCard: { marginTop: spacing.md, padding: spacing.lg, borderRadius: radius.lg,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: spacing.sm },
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  noticeTitle: { ...font.body, color: colors.slate, flex: 1 },
+  urgentDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.danger },
   statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.lg },
   statHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statIcon: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
