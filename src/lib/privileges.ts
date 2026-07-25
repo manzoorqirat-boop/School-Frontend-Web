@@ -33,6 +33,18 @@ export const PRIVILEGES: Record<string, string[]> = {
   'school:settings': ['school_admin', 'superadmin'],
   'user:manage': ['school_admin', 'superadmin'],
   'audit:view': ['school_admin', 'superadmin'],
+
+  // Notice board. 'notice:view' opens the board; WHICH notices come back is
+  // decided server-side by role/class targeting, never here.
+  'notice:view': ['teacher', 'accountant', 'principal', 'school_admin', 'superadmin', 'parent', 'student'],
+  'notice:manage': ['principal', 'school_admin', 'superadmin'],
+
+  // Birthdays are staff-facing only — the widget lists children by name.
+  'birthday:view': ['teacher', 'principal', 'school_admin', 'superadmin', 'accountant'],
+
+  // Was absent entirely, so can('teacher_attendance:view') returned false for
+  // every role and hid a page the API grants. Matches PrivilegeDefaults.cs.
+  'teacher_attendance:view': ['teacher', 'principal', 'school_admin', 'superadmin'],
 };
 
 export function can(user: SessionUser | null, privilege: string): boolean {
