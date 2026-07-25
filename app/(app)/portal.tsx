@@ -19,6 +19,12 @@ export default function Portal() {
   const [refreshing, setRefreshing] = useState(false);
   const [attendancePct, setAttendancePct] = useState<number | null>(null);
   const [feesDue, setFeesDue] = useState<number | null>(null);
+  // The poll banner below was copied from the dashboard WITHOUT this state and
+  // without the fetch that fills it, so every render of this screen threw
+  // "ReferenceError: pendingPolls is not defined" and blanked the app for the
+  // only two roles that land here — parent and student.
+  const [pendingPolls, setPendingPolls] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +37,18 @@ export default function Portal() {
       const items = inv?.items ?? [];
       const due = items.reduce((a: number, i: any) => a + Math.max(0, (i.total ?? 0) - (i.amountPaid ?? 0)), 0);
       setFeesDue(due);
+
+      // Polls awaiting this user's response — what the banner has always meant
+      // to show. Same filter the dashboard uses.
+      const pl = await API.get('/api/polls').catch(() => null);
+      const polls = Array.isArray(pl) ? pl : pl?.items ?? [];
+      setPendingPolls(polls.filter((x: any) => x.status === 'active' && !x.hasVoted));
+
+      // Notices targeted at this parent/student. The server decides which ones
+      // come back from the role and class on the token — this screen just
+      // renders whatever it is given.
+      const nt = await API.get('/api/notices?limit=3').catch(() => null);
+      setNotices(Array.isArray(nt) ? nt : nt?.items ?? []);
     } catch {}
   }, [user]);
   useEffect(() => { load(); }, [load]);
@@ -50,6 +68,20 @@ export default function Portal() {
             <Text style={styles.avatarText}>{(user?.name ?? 'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase()}</Text>
           </TouchableOpacity>
         </View>} />
+      {notices.length > 0 && (
+        <TouchableOpacity style={styles.noticeBanner} onPress={() => router.push('/(app)/notices')}>
+          <Ionicons name="megaphone" size={20} color={colors.indigo} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pollTitle}>
+              {notices.length === 1 ? '1 new notice' : `${notices.length} new notices`}
+            </Text>
+            <Text style={styles.pollSub} numberOfLines={1}>
+              {notices.map((x: any) => x.title).join(' \u00b7 ')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.indigo} />
+        </TouchableOpacity>
+      )}
       {pendingPolls.length > 0 && (
         <TouchableOpacity style={styles.pollBanner} onPress={() => router.push('/(app)/polls')}>
           <Ionicons name="bar-chart" size={20} color={colors.pink} />
@@ -76,6 +108,7 @@ export default function Portal() {
         <ActionCard title={t('nav.reportCards', 'Report Cards')} subtitle="Exam results & grades" icon="ribbon" tint={colors.sky} onPress={() => router.push('/(app)/report-cards')} />
         <ActionCard title={t('nav.fees', 'Fees')} subtitle="Invoices & pay online" icon="wallet" tint={colors.amber} onPress={() => router.push('/(app)/fees')} />
         <ActionCard title={t('nav.timetable', 'Timetable')} subtitle="Class schedule" icon="calendar" tint={colors.indigo} onPress={() => router.push('/(app)/timetable')} />
+        <ActionCard title={t('nav.notices', 'Notice Board')} subtitle="School announcements" icon="megaphone" tint={colors.indigo} onPress={() => router.push('/(app)/notices')} />
         <ActionCard title={t('nav.polls', 'Polls')} subtitle="Vote & share feedback" icon="bar-chart" tint={colors.pink} onPress={() => router.push('/(app)/polls')} />
       </View>
     </ScrollView>
@@ -86,6 +119,10 @@ const styles = StyleSheet.create({
     minHeight: 56, marginHorizontal: spacing.lg, marginBottom: spacing.md,
     borderRadius: radius.lg, backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.pink + '55' },
+  noticeBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.md,
+    minHeight: 56, marginHorizontal: spacing.lg, marginBottom: spacing.md,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.indigo + '55' },
   pollTitle: { ...font.body, color: colors.ink, fontWeight: '700' },
   pollSub: { ...font.caption, color: colors.muted, textTransform: 'none', letterSpacing: 0, marginTop: 1 },
   avatar: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
