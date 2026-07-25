@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { API } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { can } from '@/lib/privileges';
+import { useSchoolConfig } from '@/lib/schoolConfig';
 import { colors, spacing, font, radius, moduleColor } from '@/theme';
 import { Screen, EmptyState, Loading, Field, ChipPicker, DateField, FormModal } from '@/components/screen';
 import { MAX_W } from '@/components/responsive';
@@ -34,6 +35,10 @@ export default function Notices() {
   const { user } = useAuth();
   const toast = useToast();
   const canManage = can(user, 'notice:manage');
+  // Aliased: `classes` here is the SCHOOL'S configured class list, distinct
+  // from targetClasses (this notice's selection). Same source every other
+  // screen uses, so the values are guaranteed to match Student.Class.
+  const { classes: schoolClasses } = useSchoolConfig();
   const tint = moduleColor('notices');
 
   const [items, setItems] = useState<any[]>([]);
@@ -46,7 +51,7 @@ export default function Notices() {
   const [body, setBody] = useState('');
   const [priority, setPriority] = useState('normal');
   const [roles, setRoles] = useState<string[]>([]);
-  const [classes, setClasses] = useState('');
+  const [targetClasses, setTargetClasses] = useState<string[]>([]);
   const [publishAt, setPublishAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [pinned, setPinned] = useState(false);
@@ -68,7 +73,7 @@ export default function Notices() {
   function reset() {
     setEditing(null);
     setTitle(''); setBody(''); setPriority('normal');
-    setRoles([]); setClasses(''); setPublishAt(''); setExpiresAt(''); setPinned(false);
+    setRoles([]); setTargetClasses([]); setPublishAt(''); setExpiresAt(''); setPinned(false);
   }
 
   function openCreate() { reset(); setOpen(true); }
@@ -79,7 +84,7 @@ export default function Notices() {
     setBody(n.body ?? '');
     setPriority(n.priority ?? 'normal');
     setRoles(n.targetRoles ?? []);
-    setClasses((n.targetClasses ?? []).join(', '));
+    setTargetClasses(n.targetClasses ?? []);
     setPublishAt(n.publishAt ?? '');
     setExpiresAt(n.expiresAt ?? '');
     setPinned(!!n.isPinned);
@@ -88,6 +93,10 @@ export default function Notices() {
 
   function toggleRole(r: string) {
     setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+  }
+
+  function toggleClass(c: string) {
+    setTargetClasses(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   }
 
   async function save() {
@@ -100,7 +109,7 @@ export default function Notices() {
       priority,
       // Empty array = everyone. That is the server's rule, not a placeholder.
       targetRoles: roles,
-      targetClasses: classes.split(',').map(s => s.trim()).filter(Boolean),
+      targetClasses,
       publishAt: publishAt || null,
       expiresAt: expiresAt || null,
       isPinned: pinned,
@@ -274,11 +283,27 @@ export default function Notices() {
           </View>
         </View>
 
-        <Field
-          label="Classes" value={classes} onChangeText={setClasses}
-          placeholder="Class 2, Class 3"
-          hint="Comma separated, exactly as they appear on students. Leave blank for all classes. Only students and parents are filtered by class — staff always see it."
-        />
+        <View style={{ gap: 6 }}>
+          <Text style={styles.label}>Classes</Text>
+          <Text style={styles.hint}>
+            Select none for all classes. Only students and parents are filtered by
+            class — staff always see the notice.
+          </Text>
+          <View style={styles.roleWrap}>
+            {schoolClasses.map(c => {
+              const on = targetClasses.includes(c);
+              return (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => toggleClass(c)}
+                  style={[styles.roleChip, on && { backgroundColor: tint, borderColor: tint }]}
+                >
+                  <Text style={[styles.roleChipText, on && { color: '#fff' }]}>{c}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         <DateField label="Publish on" value={publishAt} onChange={setPublishAt} placeholder="Immediately" />
         <DateField label="Expires on" value={expiresAt} onChange={setExpiresAt} placeholder="Never" />
