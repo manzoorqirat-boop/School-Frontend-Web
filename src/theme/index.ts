@@ -59,6 +59,8 @@ export const colors = {
     users:             '#BE123C',   // rose    — people admin
     privileges:        '#9F1239',   // rose deep — sensitive
     polls:             '#C2410C',   // orange  — engagement
+    notices:           '#DB2777',   // pink    — announcements
+    birthdays:         '#EA580C',   // orange warm — celebrations
     audit:             '#52525B',   // slate   — system log
     settings:          '#52525B',
     'school-setup':    '#3F3F46',
