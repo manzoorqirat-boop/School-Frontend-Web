@@ -9,6 +9,7 @@ import { useI18n } from '@/i18n';
 import { exportCSV } from '@/lib/export';
 import { colors, spacing, font, radius, themeForRole, moduleColor } from '@/theme';
 import { Screen, SearchBar, ListItem, EmptyState, Loading, Field, ChipPicker, FormModal, DateField } from '@/components/screen';
+import { UpiPaySheet } from '@/components/upiPay';
 import { toast, confirm } from '@/components/toast';
 
 const STATUS_TINT: Record<string, string> = { pending: colors.warning, partial: colors.info, paid: colors.success, overdue: colors.danger, cancelled: colors.muted };
@@ -31,6 +32,7 @@ export default function Fees() {
   const [payments, setPayments] = useState<any[]>([]);
   const [pay, setPay] = useState<any>(null);
   const [payForm, setPayForm] = useState<any>({ method: 'cash' });
+  const [upiFor, setUpiFor] = useState<string | null>(null);
   const [idemKey, setIdemKey] = useState('');
   const [disc, setDisc] = useState<any>(null);
   const [discForm, setDiscForm] = useState<any>({});
@@ -269,6 +271,15 @@ export default function Fees() {
                   <Ionicons name="cash-outline" size={16} color="#fff" /><Text style={styles.actText}>Collect</Text>
                 </TouchableOpacity>
               )}
+              {/* UPI is offered to EVERY role that can see the invoice, not
+                  just fee:collect — the parent paying is the whole point. The
+                  server re-checks access and refuses a closed or zero-balance
+                  invoice. */}
+              {((detail.total ?? 0) - (detail.amountPaid ?? 0)) > 0 && detail.status !== 'cancelled' && (
+                <TouchableOpacity style={[styles.actBtn, { backgroundColor: colors.surfaceAlt }]} onPress={() => setUpiFor(detail._id)}>
+                  <Ionicons name="qr-code-outline" size={16} color={colors.ink} /><Text style={[styles.actText, { color: colors.ink }]}>Pay by UPI</Text>
+                </TouchableOpacity>
+              )}
               {can(user, 'fee:create') && (detail.status !== 'paid') && (
                 <TouchableOpacity style={[styles.actBtn, { backgroundColor: colors.surfaceAlt }]} onPress={() => openDiscount(detail)}>
                   <Ionicons name="pricetag-outline" size={16} color={colors.ink} /><Text style={[styles.actText, { color: colors.ink }]}>Discount</Text>
@@ -325,6 +336,7 @@ export default function Fees() {
             value={genForm.installment ?? ''} onChange={(v) => setGenForm({ ...genForm, installment: v })} />
         )}
       </FormModal>
+      <UpiPaySheet invoiceId={upiFor} visible={!!upiFor} onClose={() => setUpiFor(null)} />
     </Screen>
   );
 }
