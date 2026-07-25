@@ -4,7 +4,12 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { can } from '@/lib/privileges';
+// Aliased: this component already defines a LOCAL `can(key)` for menu-tile
+// visibility. Importing under the same name puts the privilege check in the
+// local binding's temporal dead zone — `canSeeBirthdays` is computed above
+// the local declaration — and throws
+// "Cannot access 'can' before initialization" during render, blanking the app.
+import { can as hasPrivilege } from '@/lib/privileges';
 import { useI18n } from '@/i18n';
 import { API } from '@/lib/api';
 import { colors, spacing, font, radius, roleAccent, roleLabel, moduleColor } from '@/theme';
@@ -22,7 +27,7 @@ export default function Dashboard() {
   const [notices, setNotices] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
 
-  const canSeeBirthdays = can(user, 'birthday:view');
+  const canSeeBirthdays = hasPrivilege(user, 'birthday:view');
 
   // 3 tiles on a phone, more as the window grows — a fixed 31% would render
   // ~600px squares on a desktop.
